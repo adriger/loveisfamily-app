@@ -1,8 +1,8 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { initializeAuth, inMemoryPersistence, connectAuthEmulator, getAuth } from 'firebase/auth';
+import { initializeAuth, inMemoryPersistence, getAuth } from 'firebase/auth';
 import type { Auth } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
-import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
+import { getFirestore } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyB17PvOZjdbGGXrooCsIVvT-UZ4wkiq6sw',
@@ -15,6 +15,7 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
+// inMemoryPersistence used here; session survives app lifecycle via onAuthStateChanged + AsyncStorage in authStore
 let auth: Auth;
 try {
   auth = initializeAuth(app, { persistence: inMemoryPersistence });
@@ -23,24 +24,5 @@ try {
 }
 
 export { auth };
-
 export const db = getFirestore(app);
 export const functions = getFunctions(app, 'us-central1');
-
-if (__DEV__) {
-  try {
-    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-  } catch (e) {
-    console.warn('Auth emulator connect failed:', e);
-  }
-  try {
-    connectFirestoreEmulator(db, 'localhost', 8080);
-  } catch (e) {
-    console.warn('Firestore emulator connect failed:', e);
-  }
-  try {
-    connectFunctionsEmulator(functions, 'localhost', 5001);
-  } catch (e) {
-    console.warn('Functions emulator connect failed:', e);
-  }
-}
