@@ -6,6 +6,8 @@ import { Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 import { useOnboardingStore } from '../store/onboardingStore';
+import { useUnreadCount } from '../hooks/useUnreadCount';
+import { useDeepLinks } from '../hooks/useDeepLinks';
 
 import SignInScreen from '../screens/auth/SignInScreen';
 import SignUpScreen from '../screens/auth/SignUpScreen';
@@ -16,6 +18,7 @@ import VerifyEmailScreen from '../screens/auth/VerifyEmailScreen';
 import UsernameScreen from '../screens/onboarding/UsernameScreen';
 import BirthdateScreen from '../screens/onboarding/BirthdateScreen';
 import ProfilePhotoScreen from '../screens/onboarding/ProfilePhotoScreen';
+import LocationScreen from '../screens/onboarding/LocationScreen';
 import FamilyCompositionScreen from '../screens/onboarding/FamilyCompositionScreen';
 import InterestsScreen from '../screens/onboarding/InterestsScreen';
 import BioScreen from '../screens/onboarding/BioScreen';
@@ -57,6 +60,7 @@ export type ProfileSetupStackParams = {
   Username: undefined;
   Birthdate: undefined;
   ProfilePhoto: undefined;
+  Location: undefined;
   FamilyComposition: undefined;
   Interests: undefined;
   Bio: undefined;
@@ -97,6 +101,8 @@ function ChatNavigator() {
 }
 
 function MainTabs() {
+  const unread = useUnreadCount();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -119,7 +125,12 @@ function MainTabs() {
       <Tab.Screen
         name="ChatTab"
         component={ChatNavigator}
-        options={{ tabBarLabel: 'Chats', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>&#x1F4AC;</Text> }}
+        options={{
+          tabBarLabel: 'Chats',
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>&#x1F4AC;</Text>,
+          tabBarBadge: unread > 0 ? unread : undefined,
+          tabBarBadgeStyle: { backgroundColor: '#c6a7f8' },
+        }}
       />
       <Tab.Screen
         name="Community"
@@ -187,6 +198,18 @@ function ProfileSetupNavigator() {
           <ProfilePhotoScreen
             onNext={(photoURL) => {
               store.setPhotoURL(photoURL);
+              navigation.navigate('Location');
+            }}
+            onBack={() => navigation.goBack()}
+          />
+        )}
+      </ProfileSetupStack.Screen>
+
+      <ProfileSetupStack.Screen name="Location">
+        {({ navigation }) => (
+          <LocationScreen
+            onNext={(location) => {
+              store.setLocation(location);
               navigation.navigate('FamilyComposition');
             }}
             onBack={() => navigation.goBack()}
@@ -245,6 +268,11 @@ function ProfileSetupNavigator() {
   );
 }
 
+function DeepLinkHandler() {
+  useDeepLinks();
+  return null;
+}
+
 export default function Navigation() {
   const { firebaseUser, isInitialized, profileComplete } = useAuthStore();
   const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
@@ -259,6 +287,7 @@ export default function Navigation() {
 
   return (
     <NavigationContainer>
+      <DeepLinkHandler />
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {firebaseUser ? (
           profileComplete ? (

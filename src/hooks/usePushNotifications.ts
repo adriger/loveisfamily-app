@@ -1,0 +1,38 @@
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+import { api } from '../api/client';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+export function usePushNotifications() {
+  const registerToken = async () => {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') return;
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: 'loveisfamily-dev',
+    });
+
+    const platform = Platform.OS;
+    try {
+      await api.notifications.registerToken({ token: tokenData.data, platform });
+    } catch (e) {
+      console.warn('Failed to register push token:', e);
+    }
+  };
+
+  return { registerToken };
+}

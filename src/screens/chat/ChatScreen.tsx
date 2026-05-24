@@ -5,7 +5,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import GradientBackground from '../../components/GradientBackground';
+import { db } from '../../config/firebase';
 import { api } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { ChatStackParams } from '../../navigation';
@@ -24,11 +26,27 @@ export default function ChatScreen() {
   const listRef = useRef<FlatList>(null);
 
   useEffect(() => {
-    api.messaging.getMessages({ conversationId: params.conversationId, limit: 50 })
-      .then(result => setMessages(result.messages.reverse()))
-      .finally(() => setLoading(false));
+    setLoading(true);
+    const messagesRef = collection(db, 'conversations', params.conversationId, 'messages');
+    const q = query(messagesRef, orderBy('timestamp', 'asc'), limit(100));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs: Message[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp?.toDate?.()?.toISOString() ?? new Date().toISOString(),
+      })) as Message[];
+      setMessages(msgs);
+      setLoading(false);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    }, (error) => {
+      console.warn('Chat listener error:', error);
+      setLoading(false);
+    });
 
     api.messaging.markAsRead({ conversationId: params.conversationId }).catch(() => {});
+
+    return () => unsubscribe();
   }, [params.conversationId]);
 
   const handleSend = async () => {
@@ -38,15 +56,6 @@ export default function ChatScreen() {
     setSending(true);
     try {
       await api.messaging.sendMessage({ conversationId: params.conversationId, text: msgText });
-      const optimistic: Message = {
-        id: Date.now().toString(),
-        sender_id: firebaseUser?.uid || '',
-        text: msgText,
-        timestamp: new Date().toISOString(),
-        is_read: false, is_edited: false, is_deleted: false, attachments: [],
-      };
-      setMessages(prev => [...prev, optimistic]);
-      listRef.current?.scrollToEnd({ animated: true });
     } finally {
       setSending(false);
     }

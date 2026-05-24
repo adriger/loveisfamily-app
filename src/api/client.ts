@@ -29,6 +29,10 @@ export const api = {
     updateProfile: call<UpdateProfilePayload, void>('updateUserProfile'),
 
     deleteAccount: call<Record<string, never>, void>('deleteUserAccount'),
+
+    sendVerificationCode: call<Record<string, never>, { success: boolean; code?: string }>('sendVerificationCode'),
+
+    verifyEmailCode: call<{ code: string }, { success: boolean }>('verifyEmailCode'),
   },
 
   // ── Matching ────────────────────────────────────────────────────────────────
@@ -132,5 +136,11 @@ export const api = {
       { tier: SubscriptionTier; paymentId: string },
       void
     >('upgradeSubscription'),
+  },
+
+  // ── Notifications ───────────────────────────────────────────────────────────
+
+  notifications: {
+    registerToken: call<{ token: string; platform: string }, { success: boolean }>('registerPushToken'),
   },
 };

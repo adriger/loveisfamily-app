@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import GradientBackground from '../../components/GradientBackground';
 import Button from '../../components/Button';
+import { api } from '../../api/client';
 
 interface Props {
   onNext: () => void;
@@ -20,7 +22,37 @@ interface Props {
 
 export default function VerifyEmailScreen({ onNext, onBack }: Props) {
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const inputs = useRef<(TextInput | null)[]>([]);
+
+  useEffect(() => {
+    sendCode();
+  }, []);
+
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
+
+  const sendCode = async () => {
+    try {
+      setResending(true);
+      const result = await api.auth.sendVerificationCode({});
+      setCountdown(60);
+      // In emulator the code is returned directly — auto-fill for dev convenience
+      if (result.code) {
+        const devDigits = result.code.split('');
+        setDigits(devDigits);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'No se pudo enviar el código');
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleChange = (text: string, index: number) => {
     const cleaned = text.replace(/[^0-9]/g, '').slice(-1);
@@ -38,7 +70,22 @@ export default function VerifyEmailScreen({ onNext, onBack }: Props) {
     }
   };
 
-  const allFilled = digits.every((d) => d !== '');
+  const handleVerify = async () => {
+    const code = digits.join('');
+    setLoading(true);
+    try {
+      await api.auth.verifyEmailCode({ code });
+      onNext();
+    } catch (err: any) {
+      Alert.alert('Código incorrecto', err?.message || 'El código no es válido o ha expirado');
+      setDigits(['', '', '', '', '', '']);
+      inputs.current[0]?.focus();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const allFilled = digits.every(d => d !== '');
 
   return (
     <GradientBackground>
@@ -58,16 +105,18 @@ export default function VerifyEmailScreen({ onNext, onBack }: Props) {
             </View>
 
             <Text style={styles.title}>Validar correo electrónico</Text>
-            <Text style={styles.body}>Revisa tu bandeja de correo</Text>
+            <Text style={styles.body}>
+              Hemos enviado un código de 6 dígitos a tu correo. Introdúcelo a continuación.
+            </Text>
 
             <View style={styles.otpRow}>
               {digits.map((digit, i) => (
                 <TextInput
                   key={i}
-                  ref={(el) => { inputs.current[i] = el; }}
-                  style={styles.otpBox}
+                  ref={el => { inputs.current[i] = el; }}
+                  style={[styles.otpBox, digit ? styles.otpBoxFilled : null]}
                   value={digit}
-                  onChangeText={(t) => handleChange(t, i)}
+                  onChangeText={t => handleChange(t, i)}
                   onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, i)}
                   keyboardType="number-pad"
                   maxLength={1}
@@ -77,12 +126,24 @@ export default function VerifyEmailScreen({ onNext, onBack }: Props) {
               ))}
             </View>
 
-            <TouchableOpacity onPress={() => {}}>
-              <Text style={styles.resend}>Reenviar</Text>
+            <TouchableOpacity
+              onPress={sendCode}
+              disabled={resending || countdown > 0}
+              style={styles.resendRow}
+            >
+              <Text style={styles.resendHint}>¿No has recibido el código? </Text>
+              <Text style={[styles.resend, (resending || countdown > 0) && styles.resendDisabled]}>
+                {countdown > 0 ? `Reenviar (${countdown}s)` : 'Reenviar'}
+              </Text>
             </TouchableOpacity>
 
             <View style={styles.btnWrap}>
-              <Button title="Continuar" onPress={onNext} disabled={!allFilled} />
+              <Button
+                title="Continuar"
+                onPress={handleVerify}
+                disabled={!allFilled}
+                loading={loading}
+              />
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -110,12 +171,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backArrow: {
-    fontSize: 28,
-    color: '#1c1c1e',
-    lineHeight: 32,
-    marginTop: -2,
-  },
+  backArrow: { fontSize: 28, color: '#1c1c1e', lineHeight: 32, marginTop: -2 },
   progressTrack: {
     flex: 1,
     height: 6,
@@ -123,46 +179,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#ede4fd',
     overflow: 'hidden',
   },
-  progressFill: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#c6a7f8',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '600',
-    color: '#1c1c1e',
-    marginBottom: 10,
-  },
-  body: {
-    fontSize: 16,
-    color: '#262626',
-    marginBottom: 36,
-  },
+  progressFill: { height: 6, borderRadius: 3, backgroundColor: '#c6a7f8' },
+  title: { fontSize: 32, fontWeight: '600', color: '#1c1c1e', marginBottom: 10 },
+  body: { fontSize: 15, color: '#262626', lineHeight: 22, marginBottom: 36 },
   otpRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 24,
   },
   otpBox: {
-    width: 42,
-    height: 40,
+    width: 44,
+    height: 52,
     backgroundColor: '#ffffff',
-    borderRadius: 8,
-    fontSize: 20,
+    borderRadius: 10,
+    fontSize: 22,
     fontWeight: '600',
     color: '#1c1c1e',
     borderWidth: 1.5,
     borderColor: '#ede4fd',
   },
-  resend: {
-    fontSize: 15,
-    color: '#c6a7f8',
-    fontWeight: '500',
-    textAlign: 'center',
+  otpBoxFilled: {
+    borderColor: '#c6a7f8',
+  },
+  resendRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     marginBottom: 40,
   },
-  btnWrap: {
-    marginTop: 8,
-  },
+  resendHint: { fontSize: 14, color: '#8c8c8c' },
+  resend: { fontSize: 14, color: '#c6a7f8', fontWeight: '600' },
+  resendDisabled: { color: '#c4b5f0' },
+  btnWrap: { marginTop: 8 },
 });

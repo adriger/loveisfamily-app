@@ -6,8 +6,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { collection, query, where, orderBy, onSnapshot, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import GradientBackground from '../../components/GradientBackground';
-import { api } from '../../api/client';
+import { db } from '../../config/firebase';
 import { useAuthStore } from '../../store/authStore';
 import { ChatStackParams } from '../../navigation';
 import type { Conversation } from '../../config/types';
@@ -20,10 +21,45 @@ export default function ChatListScreen() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    api.messaging.getConversations({})
-      .then(result => setConversations(Array.isArray(result) ? result : []))
-      .finally(() => setLoading(false));
-  }, []);
+    if (!firebaseUser) return;
+    const uid = firebaseUser.uid;
+    const convsRef = collection(db, 'conversations');
+
+    const q1 = query(convsRef, where('participant1_id', '==', uid), orderBy('last_message_timestamp', 'desc'));
+    const q2 = query(convsRef, where('participant2_id', '==', uid), orderBy('last_message_timestamp', 'desc'));
+
+    let convs1: Conversation[] = [];
+    let convs2: Conversation[] = [];
+
+    const merge = () => {
+      const merged = [...convs1, ...convs2];
+      merged.sort((a, b) => {
+        const ta = a.last_message_timestamp ?? '';
+        const tb = b.last_message_timestamp ?? '';
+        return tb.localeCompare(ta);
+      });
+      const seen = new Set<string>();
+      const deduped = merged.filter(c => {
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
+      setConversations(deduped);
+      setLoading(false);
+    };
+
+    const mapDoc = (doc: QueryDocumentSnapshot<DocumentData>): Conversation => ({
+      id: doc.id,
+      ...(doc.data() as Omit<Conversation, 'id' | 'last_message_timestamp' | 'created_at'>),
+      last_message_timestamp: doc.data().last_message_timestamp?.toDate?.()?.toISOString() ?? null,
+      created_at: doc.data().created_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
+    });
+
+    const unsub1 = onSnapshot(q1, snap => { convs1 = snap.docs.map(mapDoc); merge(); }, err => console.warn(err));
+    const unsub2 = onSnapshot(q2, snap => { convs2 = snap.docs.map(mapDoc); merge(); }, err => console.warn(err));
+
+    return () => { unsub1(); unsub2(); };
+  }, [firebaseUser]);
 
   const getUnreadCount = (conv: Conversation) => {
     if (!firebaseUser) return 0;
