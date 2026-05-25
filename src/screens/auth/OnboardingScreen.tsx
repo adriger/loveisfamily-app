@@ -6,39 +6,34 @@ import {
   StyleSheet,
   Dimensions,
   FlatList,
-  ViewToken,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../config/theme';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const { width: SCREEN_W } = Dimensions.get('window');
 
 interface Slide {
   id: string;
   heading: string;
   body: string;
-  // Each slide gets a distinct placeholder hue so they feel visually different.
-  placeholderColor: string;
 }
 
-const SLIDES: Slide[] = [
+const slides: Slide[] = [
   {
     id: '1',
     heading: 'Encuentra familias con quienes compartir',
-    body: 'Conecta con familias cerca de ti que disfrutan las mismas actividades',
-    placeholderColor: '#3a3550',
+    body: 'Conecta con familias cerca de ti que disfrutan las mismas actividades.',
   },
   {
     id: '2',
     heading: 'Del chat al parque, a la mesa, a la vida.',
-    body: 'Chatea, organiza planes y construye amistades reales',
-    placeholderColor: '#2d3b3b',
+    body: 'Chatea, organiza planes y construye amistades reales.',
   },
   {
     id: '3',
     heading: 'Un espacio seguro para tu familia',
     body: 'Tú decides con quién conectar y qué compartir. Siempre en control.',
-    placeholderColor: '#2a2d42',
   },
 ];
 
@@ -50,71 +45,156 @@ export default function OnboardingScreen({ onFinish }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const listRef = useRef<FlatList<Slide>>(null);
 
-  const onViewRef = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    if (viewableItems.length > 0 && viewableItems[0].index != null) {
-      setActiveIndex(viewableItems[0].index);
-    }
-  });
+  const textOpacity = useRef(new Animated.Value(1)).current;
+  const textTranslateX = useRef(new Animated.Value(0)).current;
 
-  const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 50 });
+  const dotWidths = useRef(slides.map((_, i) => new Animated.Value(i === 0 ? 24 : 8))).current;
+  const dotOpacities = useRef(slides.map((_, i) => new Animated.Value(i === 0 ? 1 : 0.4))).current;
+
+  const arrowScale = useRef(new Animated.Value(1)).current;
+
+  const animateToSlide = (nextIndex: number) => {
+    Animated.parallel([
+      Animated.timing(textOpacity, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(textTranslateX, {
+        toValue: -40,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      listRef.current?.scrollToIndex({ index: nextIndex, animated: false });
+      textTranslateX.setValue(40);
+
+      Animated.parallel([
+        Animated.timing(textOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(textTranslateX, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      slides.forEach((_, i) => {
+        const isActive = i === nextIndex;
+        Animated.timing(dotWidths[i], {
+          toValue: isActive ? 24 : 8,
+          duration: 200,
+          useNativeDriver: false,
+        }).start();
+        Animated.timing(dotOpacities[i], {
+          toValue: isActive ? 1 : 0.4,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      });
+
+      setActiveIndex(nextIndex);
+    });
+  };
 
   const handleNext = () => {
-    if (activeIndex < SLIDES.length - 1) {
-      listRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
+    if (activeIndex < slides.length - 1) {
+      animateToSlide(activeIndex + 1);
     } else {
       onFinish();
     }
   };
 
+  const handleArrowPressIn = () => {
+    Animated.spring(arrowScale, {
+      toValue: 0.92,
+      useNativeDriver: true,
+      tension: 200,
+      friction: 10,
+    }).start();
+  };
+
+  const handleArrowPressOut = () => {
+    Animated.spring(arrowScale, {
+      toValue: 1.0,
+      useNativeDriver: true,
+      tension: 200,
+      friction: 10,
+    }).start();
+  };
+
+  const isLastSlide = activeIndex === slides.length - 1;
+
   return (
     <View style={styles.root}>
+      <View style={styles.background} />
+      <View style={styles.overlay} />
+
       <FlatList
         ref={listRef}
-        data={SLIDES}
+        data={slides}
         keyExtractor={(item) => item.id}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewRef.current}
-        viewabilityConfig={viewConfigRef.current}
-        renderItem={({ item }) => (
-          <View style={[styles.slide, { backgroundColor: item.placeholderColor }]}>
-            {/* Dark overlay that sits on top of the placeholder "photo" */}
-            <View style={styles.overlay} />
-
-            {/* Logo top-left */}
-            <SafeAreaView edges={['top']} style={styles.topBar}>
-              <Text style={styles.logoMark}>LIF ♥</Text>
-              <TouchableOpacity style={styles.skipButton} onPress={onFinish}>
-                <Text style={styles.skipText}>Omitir</Text>
-              </TouchableOpacity>
-            </SafeAreaView>
-
-            {/* Bottom text area */}
-            <SafeAreaView edges={['bottom']} style={styles.bottomArea}>
-              <Text style={styles.heading}>{item.heading}</Text>
-              <Text style={styles.bodyText}>{item.body}</Text>
-
-              <View style={styles.controlRow}>
-                {/* Dot indicators */}
-                <View style={styles.dots}>
-                  {SLIDES.map((_, i) => (
-                    <View
-                      key={i}
-                      style={[styles.dot, i === activeIndex && styles.dotActive]}
-                    />
-                  ))}
-                </View>
-
-                {/* Next / finish arrow button */}
-                <TouchableOpacity style={styles.arrowButton} onPress={handleNext}>
-                  <Text style={styles.arrowText}>→</Text>
-                </TouchableOpacity>
-              </View>
-            </SafeAreaView>
-          </View>
-        )}
+        scrollEnabled={false}
+        renderItem={() => <View style={styles.pageSlot} />}
       />
+
+      <SafeAreaView edges={['top']} style={styles.topBar}>
+        <Text style={styles.logoMark}>LIF ♥</Text>
+        <TouchableOpacity style={styles.skipButton} onPress={onFinish}>
+          <Text style={styles.skipText}>Omitir</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+
+      <SafeAreaView edges={['bottom']} style={styles.bottomArea} pointerEvents="box-none">
+        <Animated.View
+          style={[
+            styles.textContent,
+            { opacity: textOpacity, transform: [{ translateX: textTranslateX }] },
+          ]}
+        >
+          <Text style={styles.heading}>{slides[activeIndex].heading}</Text>
+          <Text style={styles.bodyText}>{slides[activeIndex].body}</Text>
+        </Animated.View>
+
+        <View style={styles.controlRow}>
+          <View style={styles.dots}>
+            {slides.map((_, i) => (
+              <Animated.View
+                key={i}
+                style={[
+                  styles.dot,
+                  {
+                    width: dotWidths[i],
+                    opacity: dotOpacities[i],
+                  },
+                ]}
+              />
+            ))}
+          </View>
+
+          <Animated.View style={{ transform: [{ scale: arrowScale }] }}>
+            <TouchableOpacity
+              style={isLastSlide ? styles.startButton : styles.arrowButton}
+              onPress={handleNext}
+              onPressIn={handleArrowPressIn}
+              onPressOut={handleArrowPressOut}
+              activeOpacity={1}
+            >
+              {isLastSlide ? (
+                <Text style={styles.startText}>Empezar</Text>
+              ) : (
+                <Text style={styles.arrowText}>→</Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -122,15 +202,18 @@ export default function OnboardingScreen({ onFinish }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#2a2d42',
   },
-  slide: {
-    width: SCREEN_W,
-    height: SCREEN_H,
+  background: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#2a2d42',
   },
   overlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  pageSlot: {
+    width: SCREEN_W,
   },
   topBar: {
     position: 'absolute',
@@ -170,6 +253,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.screenPadding,
     paddingBottom: theme.spacing.xl,
   },
+  textContent: {
+    marginBottom: theme.spacing.xl,
+  },
   heading: {
     fontSize: 32,
     fontWeight: '600',
@@ -179,9 +265,11 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   bodyText: {
-    ...theme.typography.body,
-    color: '#ffffff',
-    marginBottom: theme.spacing.xl,
+    fontSize: 16,
+    fontWeight: '400',
+    fontFamily: theme.fonts.fallback,
+    color: 'rgba(255,255,255,0.85)',
+    lineHeight: 24,
   },
   controlRow: {
     flexDirection: 'row',
@@ -191,17 +279,12 @@ const styles = StyleSheet.create({
   dots: {
     flexDirection: 'row',
     gap: 6,
+    alignItems: 'center',
   },
   dot: {
-    width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-  },
-  dotActive: {
     backgroundColor: '#ffffff',
-    width: 24,
-    borderRadius: 4,
   },
   arrowButton: {
     width: 48,
@@ -215,5 +298,19 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: theme.colors.textDark,
     fontWeight: '600',
+  },
+  startButton: {
+    width: 120,
+    height: 48,
+    borderRadius: theme.borderRadius.pill,
+    backgroundColor: theme.colors.buttonPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  startText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.textDark,
+    fontFamily: theme.fonts.fallback,
   },
 });

@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, Alert, ScrollView,
+  PanResponder, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,6 +19,11 @@ export default function HomeScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  // Animated values for swipe gesture
+  const translateX = useRef(new Animated.Value(0)).current;
+  // Scale for the incoming card animation
+  const nextCardScale = useRef(new Animated.Value(0.92)).current;
+
   const loadSuggestions = useCallback(async () => {
     try {
       const result = await api.matching.getSuggestions({ limit: 10 });
@@ -31,7 +37,43 @@ export default function HomeScreen({ navigation }: Props) {
 
   useEffect(() => { loadSuggestions(); }, [loadSuggestions]);
 
-  const handleConnect = async () => {
+  // Reset card position and animate next card appearing
+  const resetCard = useCallback(() => {
+    translateX.setValue(0);
+    nextCardScale.setValue(0.92);
+    Animated.spring(nextCardScale, {
+      toValue: 1,
+      tension: 80,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
+  }, [translateX, nextCardScale]);
+
+  const dismissCardRight = useCallback((onDone: () => void) => {
+    Animated.spring(translateX, {
+      toValue: 500,
+      tension: 60,
+      friction: 8,
+      useNativeDriver: false,
+    }).start(() => {
+      onDone();
+      resetCard();
+    });
+  }, [translateX, resetCard]);
+
+  const dismissCardLeft = useCallback((onDone: () => void) => {
+    Animated.spring(translateX, {
+      toValue: -500,
+      tension: 60,
+      friction: 8,
+      useNativeDriver: false,
+    }).start(() => {
+      onDone();
+      resetCard();
+    });
+  }, [translateX, resetCard]);
+
+  const handleConnect = useCallback(async () => {
     const current = suggestions[currentIndex];
     if (!current) return;
     try {
@@ -41,11 +83,76 @@ export default function HomeScreen({ navigation }: Props) {
     } catch (err: any) {
       Alert.alert('Error', err.message || 'No se pudo crear la conexion');
     }
-  };
+  }, [suggestions, currentIndex]);
 
-  const handleSkip = () => {
+  const handleSkip = useCallback(() => {
     setCurrentIndex(prev => prev + 1);
-  };
+  }, []);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_evt, gestureState) =>
+        Math.abs(gestureState.dx) > 5,
+
+      onPanResponderMove: Animated.event(
+        [null, { dx: translateX }],
+        { useNativeDriver: false },
+      ),
+
+      onPanResponderRelease: (_evt, gestureState) => {
+        const { dx } = gestureState;
+        if (dx > 120) {
+          // Swipe right → connect
+          Animated.spring(translateX, {
+            toValue: 500,
+            tension: 60,
+            friction: 8,
+            useNativeDriver: false,
+          }).start(() => {
+            handleConnect();
+            resetCard();
+          });
+        } else if (dx < -120) {
+          // Swipe left → skip
+          Animated.spring(translateX, {
+            toValue: -500,
+            tension: 60,
+            friction: 8,
+            useNativeDriver: false,
+          }).start(() => {
+            handleSkip();
+            resetCard();
+          });
+        } else {
+          // Spring back to center
+          Animated.spring(translateX, {
+            toValue: 0,
+            tension: 100,
+            friction: 8,
+            useNativeDriver: false,
+          }).start();
+        }
+      },
+    }),
+  ).current;
+
+  // Derived animated values
+  const rotate = translateX.interpolate({
+    inputRange: [-200, 0, 200],
+    outputRange: ['-15deg', '0deg', '15deg'],
+  });
+
+  const connectOpacity = translateX.interpolate({
+    inputRange: [20, 120],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  const skipOpacity = translateX.interpolate({
+    inputRange: [-120, -20],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
 
   if (loading) {
     return (
@@ -81,9 +188,34 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
         ) : (
           <View style={styles.cardArea}>
-            <View style={styles.card}>
+            <Animated.View
+              style={[
+                styles.card,
+                {
+                  transform: [{ translateX }, { rotate }],
+                },
+              ]}
+              {...panResponder.panHandlers}
+            >
               <View style={styles.cardImagePlaceholder}>
                 <View style={styles.cardOverlay} />
+
+                {/* Connect overlay (swipe right) */}
+                <Animated.View
+                  style={[styles.swipeOverlay, styles.swipeOverlayConnect, { opacity: connectOpacity }]}
+                  pointerEvents="none"
+                >
+                  <Text style={styles.swipeOverlayText}>💚 CONECTAR</Text>
+                </Animated.View>
+
+                {/* Skip overlay (swipe left) */}
+                <Animated.View
+                  style={[styles.swipeOverlay, styles.swipeOverlaySkip, { opacity: skipOpacity }]}
+                  pointerEvents="none"
+                >
+                  <Text style={styles.swipeOverlayText}>✕ PASAR</Text>
+                </Animated.View>
+
                 <View style={styles.cardBottom}>
                   <Text style={styles.familyName}>{current.displayName}</Text>
                   {current.age ? (
@@ -102,10 +234,13 @@ export default function HomeScreen({ navigation }: Props) {
                   )}
                 </View>
               </View>
-            </View>
+            </Animated.View>
 
             <View style={styles.actions}>
-              <TouchableOpacity style={styles.actionBtnLight} onPress={handleSkip}>
+              <TouchableOpacity
+                style={styles.actionBtnLight}
+                onPress={() => dismissCardLeft(handleSkip)}
+              >
                 <Text style={styles.actionIconDark}>&#x2715;</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -118,7 +253,10 @@ export default function HomeScreen({ navigation }: Props) {
               >
                 <Text style={styles.actionIconDark}>&#x2139;</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtnPrimary} onPress={handleConnect}>
+              <TouchableOpacity
+                style={styles.actionBtnPrimary}
+                onPress={() => dismissCardRight(handleConnect)}
+              >
                 <Text style={styles.actionIconLight}>&#x2665;</Text>
               </TouchableOpacity>
             </View>
@@ -166,6 +304,27 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: '#1c1c1e',
     opacity: 0.4,
+  },
+  swipeOverlay: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 24,
+  },
+  swipeOverlayConnect: {
+    backgroundColor: 'rgba(52, 199, 89, 0.55)',
+  },
+  swipeOverlaySkip: {
+    backgroundColor: 'rgba(255, 59, 48, 0.55)',
+  },
+  swipeOverlayText: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: 2,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   cardBottom: {
     padding: 20,

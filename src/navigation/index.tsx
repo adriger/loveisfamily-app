@@ -84,7 +84,7 @@ const RootStack = createNativeStackNavigator<RootStackParams>();
 
 function HomeNavigator() {
   return (
-    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+    <HomeStack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       <HomeStack.Screen name="HomeMain" component={HomeScreen} />
       <HomeStack.Screen name="FamilyProfile" component={FamilyProfileScreen} />
     </HomeStack.Navigator>
@@ -148,7 +148,13 @@ function MainTabs() {
 
 function AuthNavigator() {
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+    <AuthStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        animationDuration: 250,
+      }}
+    >
       <AuthStack.Screen name="SignIn" component={SignInScreen} />
       <AuthStack.Screen name="SignUp" component={SignUpScreen} />
     </AuthStack.Navigator>
@@ -159,7 +165,14 @@ function ProfileSetupNavigator() {
   const store = useOnboardingStore();
 
   return (
-    <ProfileSetupStack.Navigator screenOptions={{ headerShown: false }}>
+    <ProfileSetupStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        gestureEnabled: false,
+        animation: 'slide_from_right',
+        animationDuration: 280,
+      }}
+    >
       <ProfileSetupStack.Screen name="VerifyEmail">
         {({ navigation }) => (
           <VerifyEmailScreen
@@ -288,7 +301,13 @@ export default function Navigation() {
   return (
     <NavigationContainer>
       <DeepLinkHandler />
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Navigator
+        screenOptions={{
+          headerShown: false,
+          animation: 'fade',
+          animationDuration: 350,
+        }}
+      >
         {firebaseUser ? (
           profileComplete ? (
             <RootStack.Screen name="Main" component={MainTabs} />

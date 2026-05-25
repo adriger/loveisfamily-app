@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -6,6 +6,7 @@ import {
   ViewStyle,
   TextStyle,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { theme } from '../config/theme';
 
@@ -31,31 +32,53 @@ export default function Button({
   textStyle,
 }: Props) {
   const isDisabled = disabled || loading;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.timing(scale, {
+      toValue: 0.96,
+      duration: 100,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scale, {
+      toValue: 1.0,
+      tension: 200,
+      friction: 10,
+      useNativeDriver: true,
+    }).start();
+  };
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={isDisabled}
-      activeOpacity={0.82}
-      style={[
-        styles.base,
-        styles[variant],
-        isDisabled && variant === 'primary' && styles.primaryDisabled,
-        isDisabled && styles.disabledOpacity,
-        style,
-      ]}
-    >
-      {loading ? (
-        <ActivityIndicator
-          color={variant === 'primary' ? theme.colors.textDark : theme.colors.buttonPrimary}
-          size="small"
-        />
-      ) : (
-        <Text style={[styles.label, styles[`${variant}Label` as keyof typeof styles], textStyle]}>
-          {title}
-        </Text>
-      )}
-    </TouchableOpacity>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={isDisabled}
+        activeOpacity={0.82}
+        style={[
+          styles.base,
+          styles[variant],
+          isDisabled && variant === 'primary' && styles.primaryDisabled,
+          isDisabled && styles.disabledOpacity,
+          style,
+        ]}
+      >
+        {loading ? (
+          <ActivityIndicator
+            color={variant === 'primary' ? theme.colors.textDark : theme.colors.buttonPrimary}
+            size="small"
+          />
+        ) : (
+          <Text style={[styles.label, styles[`${variant}Label` as keyof typeof styles], textStyle]}>
+            {title}
+          </Text>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
