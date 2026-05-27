@@ -47,9 +47,7 @@ export default function SignInScreen({ navigation }: Props) {
         >
           {/* Toolbar */}
           <View style={styles.toolbar}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <Text style={styles.backArrow}>←</Text>
-            </TouchableOpacity>
+            <View style={styles.backButton} />
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${PROGRESS * 100}%` }]} />
             </View>

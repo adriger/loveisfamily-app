@@ -1,12 +1,15 @@
 {
   "cli": {
-    "version": ">= 19.0.0",
+    "version": ">= 19.1.0",
     "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
     },
     "preview": {
       "distribution": "internal",
@@ -15,14 +18,20 @@
       }
     },
     "production": {
+      "autoIncrement": true,
       "distribution": "store",
       "ios": {
-        "simulator": false,
-        "image": "latest"
+        "image": "macos-tahoe-26.4-xcode-26.4"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "heredia_adrian@hotmail.com",
+        "ascAppId": "6773713987",
+        "appleTeamId": "64HDAZRNHW"
+      }
+    }
   }
 }

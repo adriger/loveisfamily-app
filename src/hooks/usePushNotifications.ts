@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { api } from '../api/client';
 
 Notifications.setNotificationHandler({
@@ -23,7 +24,7 @@ export function usePushNotifications() {
     if (finalStatus !== 'granted') return;
 
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: 'loveisfamily-dev',
+      projectId: Constants.expoConfig?.extra?.eas?.projectId,
     });
 
     const platform = Platform.OS;

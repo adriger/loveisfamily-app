@@ -15,7 +15,7 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// inMemoryPersistence used here; session survives app lifecycle via onAuthStateChanged + AsyncStorage in authStore
+// inMemoryPersistence — la sesión sobrevive al ciclo de vida via onAuthStateChanged + AsyncStorage
 let auth: Auth;
 try {
   auth = initializeAuth(app, { persistence: inMemoryPersistence });
@@ -23,6 +23,10 @@ try {
   auth = getAuth(app);
 }
 
+// TODO: App Check — añadir @react-native-firebase/app-check cuando tengamos
+// el development build con la cuenta de Apple Developer activada.
+// Usará DeviceCheck (iOS) y Play Integrity (Android) para máxima seguridad.
+
 export { auth };
 export const db = getFirestore(app);
-export const functions = getFunctions(app, 'us-central1');
+export const functions = getFunctions(app, 'europe-west1'); // región europea

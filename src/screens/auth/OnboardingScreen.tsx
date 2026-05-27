@@ -67,8 +67,12 @@ export default function OnboardingScreen({ onFinish }: Props) {
       }),
     ]).start(() => {
       listRef.current?.scrollToIndex({ index: nextIndex, animated: false });
+      setActiveIndex(nextIndex);
+
+      textOpacity.setValue(0);
       textTranslateX.setValue(40);
 
+      // Text in — native driver (opacity + transform only)
       Animated.parallel([
         Animated.timing(textOpacity, {
           toValue: 1,
@@ -82,6 +86,7 @@ export default function OnboardingScreen({ onFinish }: Props) {
         }),
       ]).start();
 
+      // Dots — JS driver (width is not supported by native driver)
       slides.forEach((_, i) => {
         const isActive = i === nextIndex;
         Animated.timing(dotWidths[i], {
@@ -92,11 +97,9 @@ export default function OnboardingScreen({ onFinish }: Props) {
         Animated.timing(dotOpacities[i], {
           toValue: isActive ? 1 : 0.4,
           duration: 200,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }).start();
       });
-
-      setActiveIndex(nextIndex);
     });
   };
 

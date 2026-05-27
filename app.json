@@ -4,6 +4,11 @@
     "slug": "loveisfamily",
     "scheme": "loveisfamily",
     "version": "1.0.0",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -12,13 +17,17 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.loveisfamily.app",
+      "bundleIdentifier": "com.loveisfamily",
+      "deploymentTarget": "16.4",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "LoveIsFamily necesita acceso a tu cámara para añadir fotos a tu perfil y publicaciones.",
+        "NSPhotoLibraryUsageDescription": "LoveIsFamily necesita acceso a tus fotos para añadir imágenes a tu perfil y publicaciones.",
+        "NSPhotoLibraryAddUsageDescription": "LoveIsFamily guarda fotos de perfil en tu galería."
       }
     },
     "android": {
-      "package": "com.loveisfamily.app",
+      "package": "com.loveisfamily",
       "predictiveBackGestureEnabled": false,
       "intentFilters": [
         {

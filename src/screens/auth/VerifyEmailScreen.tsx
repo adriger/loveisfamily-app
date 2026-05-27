@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import GradientBackground from '../../components/GradientBackground';
 import Button from '../../components/Button';
 import { api } from '../../api/client';
+import { auth } from '../../config/firebase';
 
 interface Props {
   onNext: () => void;
@@ -28,7 +29,19 @@ export default function VerifyEmailScreen({ onNext, onBack }: Props) {
   const inputs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
-    sendCode();
+    // Esperar a que Firebase Auth tenga el usuario listo antes de llamar
+    if (auth.currentUser) {
+      sendCode();
+    } else {
+      // Si aún no está listo, escuchar el cambio de estado
+      const unsub = auth.onAuthStateChanged((user) => {
+        if (user) {
+          unsub();
+          sendCode();
+        }
+      });
+      return unsub;
+    }
   }, []);
 
   useEffect(() => {
@@ -40,6 +53,14 @@ export default function VerifyEmailScreen({ onNext, onBack }: Props) {
   const sendCode = async () => {
     try {
       setResending(true);
+      // Esperar hasta que haya usuario y forzar refresh del token
+      let attempts = 0;
+      while (!auth.currentUser && attempts < 10) {
+        await new Promise(r => setTimeout(r, 300));
+        attempts++;
+      }
+      if (!auth.currentUser) throw new Error('No hay sesión activa');
+      await auth.currentUser.getIdToken(true); // true = forzar refresh
       const result = await api.auth.sendVerificationCode({});
       setCountdown(60);
       // In emulator the code is returned directly — auto-fill for dev convenience

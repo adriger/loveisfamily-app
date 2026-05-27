@@ -68,8 +68,8 @@ export type ProfileSetupStackParams = {
 };
 
 export type RootStackParams = {
-  Splash: { onFinish: () => void };
-  Onboarding: { onFinish: () => void };
+  Splash: undefined;
+  Onboarding: undefined;
   Auth: undefined;
   ProfileSetup: undefined;
   Main: undefined;
@@ -327,13 +327,7 @@ export default function Navigation() {
                     if (onboardingSeen) {
                       navigation.replace('Auth');
                     } else {
-                      navigation.replace('Onboarding', {
-                        onFinish: async () => {
-                          await AsyncStorage.setItem('onboarding_seen', 'true');
-                          setOnboardingSeen(true);
-                          navigation.replace('Auth');
-                        },
-                      });
+                      navigation.replace('Onboarding');
                     }
                   }}
                 />
@@ -341,8 +335,14 @@ export default function Navigation() {
             />
             <RootStack.Screen
               name="Onboarding"
-              children={({ route }) => (
-                <OnboardingScreen onFinish={route.params.onFinish} />
+              children={({ navigation }) => (
+                <OnboardingScreen
+                  onFinish={async () => {
+                    await AsyncStorage.setItem('onboarding_seen', 'true');
+                    setOnboardingSeen(true);
+                    navigation.replace('Auth');
+                  }}
+                />
               )}
             />
             <RootStack.Screen name="Auth" component={AuthNavigator} />

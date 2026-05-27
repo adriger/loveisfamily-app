@@ -1,5 +1,5 @@
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../config/firebase';
+import { functions, auth } from '../config/firebase';
 import type {
   User, UpdateProfilePayload,
   MatchSuggestion, Match, MatchType,
@@ -12,6 +12,11 @@ import type {
 function call<TData, TResult>(name: string) {
   const fn = httpsCallable<TData, TResult>(functions, name);
   return async (data: TData): Promise<TResult> => {
+    // Forzar refresh del token antes de llamadas autenticadas
+    // Evita el error "unauthenticated" justo después del login
+    if (auth.currentUser) {
+      await auth.currentUser.getIdToken(false);
+    }
     const result = await fn(data);
     return result.data;
   };
