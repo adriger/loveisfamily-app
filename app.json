@@ -53,7 +53,9 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "16.4"
+            "deploymentTarget": "16.4",
+            "extraPodspecPlatformVersion": "16.4",
+            "useFrameworks": "static"
           }
         }
       ]
