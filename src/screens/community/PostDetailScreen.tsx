@@ -41,10 +41,10 @@ export default function PostDetailScreen({ post, onBack }: Props) {
 
   const loadComments = async () => {
     try {
-      // No hay endpoint de getComments en el API actual — mostramos placeholder
-      setComments([]);
+      const result = await api.community.getComments({ postId: post.id, limit: 50 });
+      setComments(result.comments);
     } catch {
-      // silencio
+      setComments([]);
     } finally {
       setLoadingComments(false);
     }

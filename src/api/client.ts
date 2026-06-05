@@ -110,6 +110,11 @@ export const api = {
     >('getPostFeed'),
 
     deletePost: call<{ postId: string }, void>('deletePost'),
+
+    getComments: call<
+      { postId: string; limit?: number; startAfter?: string },
+      { comments: Comment[]; nextCursor: string | null }
+    >('getPostComments'),
   },
 
   // ── Teams ───────────────────────────────────────────────────────────────────
@@ -130,6 +135,21 @@ export const api = {
     addActivity: call<{ teamId: string; activityIds: string[] }, void>('addActivityToTeam'),
 
     getDetails: call<{ teamId: string }, Team>('getTeamDetails'),
+
+    list: call<
+      { limit?: number; startAfter?: string; search?: string },
+      { teams: Team[]; nextCursor: string | null }
+    >('listTeams'),
+
+    join: call<{ teamId: string }, void>('joinTeam'),
+  },
+
+  // ── Verification ────────────────────────────────────────────────────────────
+
+  verification: {
+    submit: call<{ documentPhotoURL: string }, { status: string }>('submitProfileVerification'),
+
+    getStatus: call<Record<string, never>, { status: string; submittedAt?: string; rejectionReason?: string | null }>('getVerificationStatus'),
   },
 
   // ── Freemium ────────────────────────────────────────────────────────────────

@@ -36,7 +36,7 @@ export default function GroupDetailScreen({ group, onBack, onOpenChat }: Props) 
   const handleJoin = async () => {
     setJoining(true);
     try {
-      await new Promise((r) => setTimeout(r, 800));
+      await api.teams.join({ teamId: group.id });
       setJoined(true);
     } catch (e: any) {
       Alert.alert('Error', e.message);

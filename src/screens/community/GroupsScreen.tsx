@@ -28,7 +28,10 @@ export default function GroupsScreen({ onSelectGroup, onCreateGroup }: Props) {
   ];
 
   useEffect(() => {
-    setTimeout(() => { setGroups(MOCK_GROUPS); setLoading(false); }, 600);
+    api.teams.list({ limit: 30 })
+      .then((result) => setGroups(result.teams.length > 0 ? result.teams : MOCK_GROUPS))
+      .catch(() => setGroups(MOCK_GROUPS))
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = groups.filter(

@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import GradientBackground from '../../components/GradientBackground';
 import Button from '../../components/Button';
+import { api } from '../../api/client';
 
 type ValidationState = 'upload' | 'uploading' | 'pending' | 'approved' | 'rejected';
 
@@ -38,9 +39,13 @@ export default function ProfileValidationScreen({ onNext, onSkip }: Props) {
   const submitVerification = async () => {
     if (!selectedImage) return;
     setState('uploading');
-    // Simula el proceso de subida y verificación
-    await new Promise((r) => setTimeout(r, 2000));
-    setState('pending');
+    try {
+      await api.verification.submit({ documentPhotoURL: selectedImage });
+      setState('pending');
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo enviar la verificación');
+      setState('upload');
+    }
   };
 
   if (state === 'uploading') {
