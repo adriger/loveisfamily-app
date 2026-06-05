@@ -58,7 +58,8 @@
             "useFrameworks": "static"
           }
         }
-      ]
+      ],
+      "./plugins/withFollyFix"
     ],
     "extra": {
       "eas": {
