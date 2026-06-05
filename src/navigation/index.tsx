@@ -30,7 +30,13 @@ import ExploreScreen from '../screens/explore/ExploreScreen';
 import ChatListScreen from '../screens/chat/ChatListScreen';
 import ChatScreen from '../screens/chat/ChatScreen';
 import FeedScreen from '../screens/community/FeedScreen';
+import PostDetailScreen from '../screens/community/PostDetailScreen';
+import GroupsScreen from '../screens/community/GroupsScreen';
+import GroupDetailScreen from '../screens/community/GroupDetailScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
+import PrivacyScreen from '../screens/onboarding/PrivacyScreen';
+import ProfileValidationScreen from '../screens/onboarding/ProfileValidationScreen';
+import type { Post, Team } from '../config/types';
 
 export type AuthStackParams = {
   SignIn: undefined;
@@ -46,8 +52,15 @@ export type MainTabParams = {
   Home: undefined;
   Explore: undefined;
   ChatTab: undefined;
-  Community: undefined;
+  CommunityTab: undefined;
   Profile: undefined;
+};
+
+export type CommunityStackParams = {
+  Feed: undefined;
+  PostDetail: { post: Post };
+  Groups: undefined;
+  GroupDetail: { group: Team };
 };
 
 export type ChatStackParams = {
@@ -57,6 +70,7 @@ export type ChatStackParams = {
 
 export type ProfileSetupStackParams = {
   VerifyEmail: undefined;
+  Privacy: undefined;
   Username: undefined;
   Birthdate: undefined;
   ProfilePhoto: undefined;
@@ -64,6 +78,7 @@ export type ProfileSetupStackParams = {
   FamilyComposition: undefined;
   Interests: undefined;
   Bio: undefined;
+  ProfileValidation: undefined;
   Welcome: undefined;
 };
 
@@ -79,6 +94,7 @@ const AuthStack = createNativeStackNavigator<AuthStackParams>();
 const HomeStack = createNativeStackNavigator<HomeStackParams>();
 const Tab = createBottomTabNavigator<MainTabParams>();
 const ChatStack = createNativeStackNavigator<ChatStackParams>();
+const CommunityStack = createNativeStackNavigator<CommunityStackParams>();
 const ProfileSetupStack = createNativeStackNavigator<ProfileSetupStackParams>();
 const RootStack = createNativeStackNavigator<RootStackParams>();
 
@@ -97,6 +113,39 @@ function ChatNavigator() {
       <ChatStack.Screen name="ChatList" component={ChatListScreen} />
       <ChatStack.Screen name="Chat" component={ChatScreen} />
     </ChatStack.Navigator>
+  );
+}
+
+function CommunityNavigator() {
+  return (
+    <CommunityStack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+      <CommunityStack.Screen name="Feed" component={FeedScreen} />
+      <CommunityStack.Screen name="PostDetail">
+        {({ route, navigation }) => (
+          <PostDetailScreen
+            post={route.params.post}
+            onBack={() => navigation.goBack()}
+          />
+        )}
+      </CommunityStack.Screen>
+      <CommunityStack.Screen name="Groups">
+        {({ navigation }) => (
+          <GroupsScreen
+            onSelectGroup={(group) => navigation.navigate('GroupDetail', { group })}
+            onCreateGroup={() => {}}
+          />
+        )}
+      </CommunityStack.Screen>
+      <CommunityStack.Screen name="GroupDetail">
+        {({ route, navigation }) => (
+          <GroupDetailScreen
+            group={route.params.group}
+            onBack={() => navigation.goBack()}
+            onOpenChat={() => {}}
+          />
+        )}
+      </CommunityStack.Screen>
+    </CommunityStack.Navigator>
   );
 }
 
@@ -133,8 +182,8 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="Community"
-        component={FeedScreen}
+        name="CommunityTab"
+        component={CommunityNavigator}
         options={{ tabBarLabel: 'Comunidad', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>&#x1F33F;</Text> }}
       />
       <Tab.Screen
@@ -176,8 +225,17 @@ function ProfileSetupNavigator() {
       <ProfileSetupStack.Screen name="VerifyEmail">
         {({ navigation }) => (
           <VerifyEmailScreen
-            onNext={() => navigation.navigate('Username')}
+            onNext={() => navigation.navigate('Privacy')}
             onBack={() => navigation.getParent()?.navigate('Auth')}
+          />
+        )}
+      </ProfileSetupStack.Screen>
+
+      <ProfileSetupStack.Screen name="Privacy">
+        {({ navigation }) => (
+          <PrivacyScreen
+            onNext={() => navigation.navigate('Username')}
+            onBack={() => navigation.goBack()}
           />
         )}
       </ProfileSetupStack.Screen>
@@ -260,9 +318,18 @@ function ProfileSetupNavigator() {
             onNext={async (bio) => {
               store.setBio(bio);
               await store.submit();
-              navigation.navigate('Welcome');
+              navigation.navigate('ProfileValidation');
             }}
             onBack={() => navigation.goBack()}
+          />
+        )}
+      </ProfileSetupStack.Screen>
+
+      <ProfileSetupStack.Screen name="ProfileValidation">
+        {({ navigation }) => (
+          <ProfileValidationScreen
+            onNext={() => navigation.navigate('Welcome')}
+            onSkip={() => navigation.navigate('Welcome')}
           />
         )}
       </ProfileSetupStack.Screen>

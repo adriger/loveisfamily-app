@@ -207,7 +207,7 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.emptySubtext}>Prueba a ampliar el radio de busqueda o explora la comunidad</Text>
             <View style={styles.emptyButtons}>
               <Button title="Ampliar radio" onPress={handleExpandRadius} variant="primary" style={styles.emptyBtn} />
-              <Button title="Explorar comunidad" onPress={() => tabNav.navigate('Community')} variant="secondary" style={styles.emptyBtn} />
+              <Button title="Explorar comunidad" onPress={() => tabNav.navigate('CommunityTab')} variant="secondary" style={styles.emptyBtn} />
             </View>
           </View>
         ) : (

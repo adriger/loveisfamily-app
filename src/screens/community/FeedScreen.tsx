@@ -1,4 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { CommunityStackParams } from '../../navigation';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   RefreshControl, ActivityIndicator, Alert, TextInput, Modal, ScrollView, Image,
@@ -19,6 +22,7 @@ const FEED_TABS = ['Para ti', 'Siguiendo', 'Grupos'] as const;
 type FeedTab = typeof FEED_TABS[number];
 
 export default function FeedScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<CommunityStackParams>>();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -124,7 +128,10 @@ export default function FeedScreen() {
             <TouchableOpacity
               key={tab}
               style={[styles.segmentTab, activeTab === tab && styles.segmentTabActive]}
-              onPress={() => setActiveTab(tab)}
+              onPress={() => {
+                if (tab === 'Grupos') { navigation.navigate('Groups'); return; }
+                setActiveTab(tab);
+              }}
             >
               <Text style={[styles.segmentTabText, activeTab === tab && styles.segmentTabTextActive]}>
                 {tab}

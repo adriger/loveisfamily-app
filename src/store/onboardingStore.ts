@@ -4,8 +4,8 @@ import { useAuthStore } from './authStore';
 
 interface FamilyComposition {
   household?: string;
-  children?: string;
-  pets?: string;
+  childrenAges?: string[];
+  pets?: string[];
 }
 
 interface LocationData {
@@ -56,11 +56,11 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
 
     const bioText = [
       composition.household,
-      composition.children,
-      composition.pets,
+      composition.childrenAges?.join(', '),
+      composition.pets?.join(', '),
     ]
       .filter(Boolean)
-      .join(', ');
+      .join(' · ');
 
     // TODO: If photoURL starts with 'file://' or 'content://', it is a local URI
     // and should be uploaded to Firebase Storage before calling updateProfile.
