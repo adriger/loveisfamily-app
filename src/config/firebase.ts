@@ -1,5 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { initializeAuth, inMemoryPersistence, getAuth } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Auth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getFunctions } from 'firebase/functions';
@@ -15,10 +16,9 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// inMemoryPersistence — la sesión sobrevive al ciclo de vida via onAuthStateChanged + AsyncStorage
 let auth: Auth;
 try {
-  auth = initializeAuth(app, { persistence: inMemoryPersistence });
+  auth = initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
 } catch {
   auth = getAuth(app);
 }

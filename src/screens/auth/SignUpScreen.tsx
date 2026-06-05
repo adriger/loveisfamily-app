@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,14 +22,28 @@ type Props = { navigation: NativeStackNavigationProp<AuthStackParams, 'SignUp'> 
 
 const PROGRESS = 0.25;
 
+const passwordRules = [
+  { label: 'Mínimo 8 caracteres', test: (p: string) => p.length >= 8 },
+  { label: 'Una letra mayúscula', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'Una letra minúscula', test: (p: string) => /[a-z]/.test(p) },
+  { label: 'Un número', test: (p: string) => /\d/.test(p) },
+];
+
 export default function SignUpScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const { signUp, isLoading } = useAuthStore();
 
+  const ruleResults = useMemo(
+    () => passwordRules.map(r => ({ ...r, passed: r.test(password) })),
+    [password],
+  );
+  const passwordValid = ruleResults.every(r => r.passed);
+
   const allFilled =
-    email.trim().length > 0 && password.length > 0 && confirmPassword.length > 0;
+    email.trim().length > 0 && passwordValid && confirmPassword.length > 0;
 
   const handleSignUp = async () => {
     if (!allFilled) return;
@@ -100,7 +114,22 @@ export default function SignUpScreen({ navigation }: Props) {
                   autoComplete="new-password"
                   placeholder="Mín. 8 caracteres"
                   placeholderTextColor={theme.colors.textSecondary}
+                  onFocus={() => setPasswordFocused(true)}
                 />
+                {(passwordFocused || password.length > 0) && (
+                  <View style={styles.rulesContainer}>
+                    {ruleResults.map(r => (
+                      <View key={r.label} style={styles.ruleRow}>
+                        <Text style={[styles.ruleDot, r.passed && styles.ruleDotPassed]}>
+                          {r.passed ? '✓' : '○'}
+                        </Text>
+                        <Text style={[styles.ruleText, r.passed && styles.ruleTextPassed]}>
+                          {r.label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
 
               <View style={styles.inputGroup}>
@@ -249,5 +278,30 @@ const styles = StyleSheet.create({
   linkAccent: {
     color: theme.colors.textDark,
     fontWeight: '600',
+  },
+  rulesContainer: {
+    marginTop: theme.spacing.xs,
+    gap: 4,
+  },
+  ruleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  ruleDot: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    width: 14,
+    textAlign: 'center',
+  },
+  ruleDotPassed: {
+    color: '#34c759',
+  },
+  ruleText: {
+    ...theme.typography.small,
+    color: theme.colors.textSecondary,
+  },
+  ruleTextPassed: {
+    color: '#34c759',
   },
 });

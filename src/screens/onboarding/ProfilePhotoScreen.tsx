@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,9 +22,20 @@ export default function ProfilePhotoScreen({ onNext, onBack }: Props) {
   const [localUri, setLocalUri] = useState<string | undefined>(undefined);
 
   const pickFromLibrary = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const { status, canAskAgain } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permisos necesarios', 'Necesitamos acceso a tus fotos para continuar');
+      if (!canAskAgain) {
+        Alert.alert(
+          'Acceso a fotos bloqueado',
+          'Permite el acceso en Ajustes > LoveIsFamily > Fotos.',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Abrir Ajustes', onPress: () => Linking.openSettings() },
+          ],
+        );
+      } else {
+        Alert.alert('Permisos necesarios', 'Necesitamos acceso a tus fotos para continuar.');
+      }
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -38,9 +50,20 @@ export default function ProfilePhotoScreen({ onNext, onBack }: Props) {
   };
 
   const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    const { status, canAskAgain } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permisos necesarios', 'Necesitamos acceso a la cámara para continuar');
+      if (!canAskAgain) {
+        Alert.alert(
+          'Acceso a cámara bloqueado',
+          'Permite el acceso en Ajustes > LoveIsFamily > Cámara.',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Abrir Ajustes', onPress: () => Linking.openSettings() },
+          ],
+        );
+      } else {
+        Alert.alert('Permisos necesarios', 'Necesitamos acceso a la cámara para continuar.');
+      }
       return;
     }
     const result = await ImagePicker.launchCameraAsync({

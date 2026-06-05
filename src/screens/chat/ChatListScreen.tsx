@@ -21,17 +21,25 @@ export default function ChatListScreen() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    if (!firebaseUser) return;
+    if (!firebaseUser) {
+      setLoading(false);
+      return;
+    }
     const uid = firebaseUser.uid;
     const convsRef = collection(db, 'conversations');
 
-    const q1 = query(convsRef, where('participant1_id', '==', uid), orderBy('last_message_timestamp', 'desc'));
-    const q2 = query(convsRef, where('participant2_id', '==', uid), orderBy('last_message_timestamp', 'desc'));
+    // Queries sin orderBy para evitar error si el índice compuesto no existe.
+    // Ordenamos en cliente después de recibir los datos.
+    const q1 = query(convsRef, where('participant1_id', '==', uid));
+    const q2 = query(convsRef, where('participant2_id', '==', uid));
 
     let convs1: Conversation[] = [];
     let convs2: Conversation[] = [];
+    let got1 = false;
+    let got2 = false;
 
     const merge = () => {
+      if (!got1 || !got2) return;
       const merged = [...convs1, ...convs2];
       merged.sort((a, b) => {
         const ta = a.last_message_timestamp ?? '';
@@ -55,10 +63,21 @@ export default function ChatListScreen() {
       created_at: doc.data().created_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
     });
 
-    const unsub1 = onSnapshot(q1, snap => { convs1 = snap.docs.map(mapDoc); merge(); }, err => console.warn(err));
-    const unsub2 = onSnapshot(q2, snap => { convs2 = snap.docs.map(mapDoc); merge(); }, err => console.warn(err));
+    const unsub1 = onSnapshot(
+      q1,
+      snap => { convs1 = snap.docs.map(mapDoc); got1 = true; merge(); },
+      err => { console.warn('Chat q1 error:', err); got1 = true; merge(); },
+    );
+    const unsub2 = onSnapshot(
+      q2,
+      snap => { convs2 = snap.docs.map(mapDoc); got2 = true; merge(); },
+      err => { console.warn('Chat q2 error:', err); got2 = true; merge(); },
+    );
 
-    return () => { unsub1(); unsub2(); };
+    // Fallback por si Firestore no responde en 8 s (emulador apagado, sin conexión)
+    const timeout = setTimeout(() => { got1 = true; got2 = true; merge(); }, 8000);
+
+    return () => { unsub1(); unsub2(); clearTimeout(timeout); };
   }, [firebaseUser]);
 
   const getUnreadCount = (conv: Conversation) => {

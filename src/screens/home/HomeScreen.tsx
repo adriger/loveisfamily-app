@@ -1,33 +1,43 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity, Modal,
   ActivityIndicator, Alert, ScrollView,
   PanResponder, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import GradientBackground from '../../components/GradientBackground';
 import Button from '../../components/Button';
 import { api } from '../../api/client';
 import type { MatchSuggestion } from '../../config/types';
-import type { HomeStackParams } from '../../navigation/index';
+import type { HomeStackParams, MainTabParams } from '../../navigation/index';
 
 type Props = NativeStackScreenProps<HomeStackParams, 'HomeMain'>;
+type TabNav = BottomTabNavigationProp<MainTabParams>;
+
+const RADIUS_OPTIONS = [10, 25, 50, 100];
 
 export default function HomeScreen({ navigation }: Props) {
+  const tabNav = useNavigation<TabNav>();
   const [suggestions, setSuggestions] = useState<MatchSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [radiusKm, setRadiusKm] = useState(10);
+  const [showMenu, setShowMenu] = useState(false);
 
   // Animated values for swipe gesture
   const translateX = useRef(new Animated.Value(0)).current;
   // Scale for the incoming card animation
   const nextCardScale = useRef(new Animated.Value(0.92)).current;
 
-  const loadSuggestions = useCallback(async () => {
+  const loadSuggestions = useCallback(async (radius?: number) => {
+    setLoading(true);
     try {
       const result = await api.matching.getSuggestions({ limit: 10 });
       setSuggestions(Array.isArray(result) ? result : []);
+      setCurrentIndex(0);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'No se pudieron cargar las sugerencias');
     } finally {
@@ -35,7 +45,18 @@ export default function HomeScreen({ navigation }: Props) {
     }
   }, []);
 
-  useEffect(() => { loadSuggestions(); }, [loadSuggestions]);
+  useEffect(() => { loadSuggestions(radiusKm); }, [loadSuggestions]);
+
+  const handleExpandRadius = () => {
+    const nextIndex = RADIUS_OPTIONS.indexOf(radiusKm) + 1;
+    if (nextIndex < RADIUS_OPTIONS.length) {
+      const newRadius = RADIUS_OPTIONS[nextIndex];
+      setRadiusKm(newRadius);
+      loadSuggestions(newRadius);
+    } else {
+      Alert.alert('Radio máximo', 'Ya estás buscando en el radio máximo disponible (100 km).');
+    }
+  };
 
   // Reset card position and animate next card appearing
   const resetCard = useCallback(() => {
@@ -171,9 +192,12 @@ export default function HomeScreen({ navigation }: Props) {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.toolbar}>
           <Text style={styles.logo}>LIF&#x2665;</Text>
-          <TouchableOpacity style={styles.filterBtn}>
-            <Text style={styles.filterIcon}>&#x2261;</Text>
-          </TouchableOpacity>
+          <View style={styles.toolbarRight}>
+            <Text style={styles.radiusLabel}>{radiusKm} km</Text>
+            <TouchableOpacity style={styles.filterBtn} onPress={() => setShowMenu(true)}>
+              <Text style={styles.filterIcon}>&#x2261;</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {!current ? (
@@ -182,8 +206,8 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.emptyTitle}>Aun no hay familias cerca</Text>
             <Text style={styles.emptySubtext}>Prueba a ampliar el radio de busqueda o explora la comunidad</Text>
             <View style={styles.emptyButtons}>
-              <Button title="Ampliar radio" onPress={() => {}} variant="primary" style={styles.emptyBtn} />
-              <Button title="Explorar comunidad" onPress={() => {}} variant="secondary" style={styles.emptyBtn} />
+              <Button title="Ampliar radio" onPress={handleExpandRadius} variant="primary" style={styles.emptyBtn} />
+              <Button title="Explorar comunidad" onPress={() => tabNav.navigate('Community')} variant="secondary" style={styles.emptyBtn} />
             </View>
           </View>
         ) : (
@@ -263,6 +287,34 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
         )}
       </SafeAreaView>
+
+      {/* Menú de filtros */}
+      <Modal visible={showMenu} transparent animationType="slide" onRequestClose={() => setShowMenu(false)}>
+        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setShowMenu(false)}>
+          <View style={styles.menuSheet}>
+            <View style={styles.menuHandle} />
+            <Text style={styles.menuTitle}>Radio de búsqueda</Text>
+            <Text style={styles.menuSubtitle}>Mostrando familias en un radio de {radiusKm} km</Text>
+            <View style={styles.menuOptions}>
+              {RADIUS_OPTIONS.map(r => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.menuOption, radiusKm === r && styles.menuOptionActive]}
+                  onPress={() => {
+                    setRadiusKm(r);
+                    loadSuggestions(r);
+                    setShowMenu(false);
+                  }}
+                >
+                  <Text style={[styles.menuOptionText, radiusKm === r && styles.menuOptionTextActive]}>
+                    {r} km
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </GradientBackground>
   );
 }
@@ -381,4 +433,41 @@ const styles = StyleSheet.create({
   emptySubtext: { fontSize: 14, color: '#8c8c8c', textAlign: 'center', marginBottom: 32 },
   emptyButtons: { width: '100%', gap: 12 },
   emptyBtn: { width: '100%' },
+  toolbarRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  radiusLabel: { fontSize: 13, color: '#8c8c8c', fontWeight: '500' },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'flex-end',
+  },
+  menuSheet: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 48,
+  },
+  menuHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#e5e5e5',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  menuTitle: { fontSize: 18, fontWeight: '700', color: '#1c1c1e', marginBottom: 4 },
+  menuSubtitle: { fontSize: 14, color: '#8c8c8c', marginBottom: 20 },
+  menuOptions: { flexDirection: 'row', gap: 10 },
+  menuOption: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#e5e5e5',
+    alignItems: 'center',
+  },
+  menuOptionActive: { borderColor: '#c6a7f8', backgroundColor: '#ede4fd' },
+  menuOptionText: { fontSize: 15, fontWeight: '600', color: '#8c8c8c' },
+  menuOptionTextActive: { color: '#c6a7f8' },
 });

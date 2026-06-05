@@ -20,8 +20,6 @@ import { theme } from '../../config/theme';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParams, 'SignIn'> };
 
-const PROGRESS = 0.5;
-
 export default function SignInScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,19 +43,14 @@ export default function SignInScreen({ navigation }: Props) {
           style={styles.kav}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          {/* Toolbar */}
-          <View style={styles.toolbar}>
-            <View style={styles.backButton} />
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${PROGRESS * 100}%` }]} />
-            </View>
-          </View>
-
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
+            {/* Logo */}
+            <Text style={styles.logo}>LIF&#x2665;</Text>
+
             {/* Heading */}
             <Text style={styles.title}>Iniciar sesión</Text>
             <Text style={styles.subtitle}>Bienvenido de nuevo. Nos alegra verte.</Text>
@@ -124,43 +117,17 @@ const styles = StyleSheet.create({
   kav: {
     flex: 1,
   },
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.screenPadding,
-    paddingTop: theme.spacing.sm,
-    paddingBottom: theme.spacing.md,
-    gap: theme.spacing.md,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.buttonSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backArrow: {
-    fontSize: 20,
-    color: theme.colors.textDark,
-    lineHeight: 24,
-  },
-  progressTrack: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.colors.buttonPrimaryDisabled,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 2,
-    backgroundColor: theme.colors.buttonPrimary,
-  },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: theme.spacing.screenPadding,
     paddingTop: theme.spacing.xl,
     paddingBottom: theme.spacing.xxl,
+  },
+  logo: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: theme.colors.textDark,
+    marginBottom: theme.spacing.xl,
   },
   title: {
     ...theme.typography.display,

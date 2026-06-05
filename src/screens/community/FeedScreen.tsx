@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Alert, TextInput, Modal, ScrollView,
+  RefreshControl, ActivityIndicator, Alert, TextInput, Modal, ScrollView, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import GradientBackground from '../../components/GradientBackground';
 import { api } from '../../api/client';
 import type { Post, ActivityType } from '../../config/types';
@@ -26,6 +27,8 @@ export default function FeedScreen() {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newType, setNewType] = useState<ActivityType>('sports');
+  const [newImageUri, setNewImageUri] = useState<string | undefined>(undefined);
+  const [publishing, setPublishing] = useState(false);
 
   const loadFeed = useCallback(async () => {
     try {
@@ -52,24 +55,47 @@ export default function FeedScreen() {
     }
   };
 
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permisos necesarios', 'Necesitamos acceso a tus fotos para adjuntar imágenes');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setNewImageUri(result.assets[0].uri);
+    }
+  };
+
   const handleCreatePost = async () => {
     if (!newTitle.trim() || !newDesc.trim()) {
       Alert.alert('Error', 'Titulo y descripcion son obligatorios');
       return;
     }
+    if (publishing) return;
+    setPublishing(true);
     try {
       await api.community.createPost({
         title: newTitle.trim(),
         description: newDesc.trim(),
         activityType: newType,
         visibility: 'public',
+        ...(newImageUri ? { images: [newImageUri] } : {}),
       });
       setShowCreate(false);
       setNewTitle('');
       setNewDesc('');
+      setNewImageUri(undefined);
       loadFeed();
     } catch (err: any) {
       Alert.alert('Error', err.message);
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -179,10 +205,34 @@ export default function FeedScreen() {
               </TouchableOpacity>
             ))}
           </View>
-          <TouchableOpacity style={styles.submitBtn} onPress={handleCreatePost}>
-            <Text style={styles.submitBtnText}>Publicar</Text>
+          <Text style={styles.modalLabel}>Imagen (opcional)</Text>
+          <TouchableOpacity style={styles.imagePicker} onPress={handlePickImage}>
+            {newImageUri ? (
+              <Image source={{ uri: newImageUri }} style={styles.imagePreview} />
+            ) : (
+              <View style={styles.imagePickerPlaceholder}>
+                <Text style={styles.imagePickerIcon}>📷</Text>
+                <Text style={styles.imagePickerText}>Añadir imagen</Text>
+              </View>
+            )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowCreate(false)}>
+          {newImageUri && (
+            <TouchableOpacity onPress={() => setNewImageUri(undefined)} style={styles.removeImageBtn}>
+              <Text style={styles.removeImageText}>Eliminar imagen</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[styles.submitBtn, publishing && styles.submitBtnDisabled]}
+            onPress={handleCreatePost}
+            disabled={publishing}
+          >
+            {publishing ? (
+              <ActivityIndicator color="#1c1c1e" />
+            ) : (
+              <Text style={styles.submitBtnText}>Publicar</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.cancelBtn} onPress={() => { if (!publishing) setShowCreate(false); }}>
             <Text style={styles.cancelBtnText}>Cancelar</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -310,8 +360,28 @@ const styles = StyleSheet.create({
   typeBtnActive: { borderColor: '#c6a7f8', backgroundColor: '#ede4fd' },
   typeBtnText: { fontSize: 13, color: '#8c8c8c' },
   typeBtnTextActive: { color: '#c6a7f8', fontWeight: '600' },
-  submitBtn: { backgroundColor: '#c6a7f8', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 12 },
+  submitBtn: { backgroundColor: '#c6a7f8', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 12, minHeight: 52 },
+  submitBtnDisabled: { opacity: 0.6 },
   submitBtnText: { color: '#1c1c1e', fontWeight: '700', fontSize: 16 },
   cancelBtn: { padding: 16, alignItems: 'center' },
   cancelBtnText: { color: '#8c8c8c', fontSize: 15 },
+  imagePicker: {
+    borderWidth: 1.5,
+    borderColor: '#e5e5e5',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  imagePickerPlaceholder: {
+    height: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  imagePickerIcon: { fontSize: 28 },
+  imagePickerText: { fontSize: 14, color: '#8c8c8c' },
+  imagePreview: { width: '100%', height: 180 },
+  removeImageBtn: { alignSelf: 'flex-end', marginBottom: 16 },
+  removeImageText: { fontSize: 13, color: '#ff3b30' },
 });
