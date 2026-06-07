@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, ScrollView, Modal, Pressable,
+  TextInput, ScrollView, Modal, Pressable, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import GradientBackground from '../../components/GradientBackground';
@@ -210,42 +210,89 @@ export default function ExploreScreen() {
 function ReservationForm({ service, onSubmit, onBack }: { service: Service; onSubmit: () => void; onBack: () => void }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [date, setDate] = useState('');
+  const [dd, setDd] = useState('');
+  const [mm, setMm] = useState('');
+  const [yyyy, setYyyy] = useState('');
   const [notes, setNotes] = useState('');
+  const mmRef = useRef<TextInput>(null);
+  const yyyyRef = useRef<TextInput>(null);
+
+  const handleDd = (t: string) => {
+    const v = t.replace(/[^0-9]/g, '').slice(0, 2);
+    setDd(v);
+    if (v.length === 2) mmRef.current?.focus();
+  };
+  const handleMm = (t: string) => {
+    const v = t.replace(/[^0-9]/g, '').slice(0, 2);
+    setMm(v);
+    if (v.length === 2) yyyyRef.current?.focus();
+  };
+  const handleYyyy = (t: string) => setYyyy(t.replace(/[^0-9]/g, '').slice(0, 4));
+
+  const dateValid = dd.length === 2 && mm.length === 2 && yyyy.length === 4;
+  const canSubmit = name.trim() && phone.trim() && dateValid;
+
+  const handleConfirm = () => {
+    onSubmit();
+    Alert.alert('Reserva enviada', 'Nos pondremos en contacto contigo para confirmar la cita.');
+  };
 
   return (
-    <>
-      <TouchableOpacity onPress={onBack} style={{ marginBottom: 16 }}>
-        <Text style={{ color: '#c6a7f8', fontSize: 15, fontWeight: '500' }}>‹ Volver</Text>
-      </TouchableOpacity>
-      <Text style={styles.detailName}>Reservar en {service.name}</Text>
-      <Text style={{ color: '#8c8c8c', fontSize: 13, marginBottom: 20 }}>
-        Completa tus datos y nos pondremos en contacto contigo.
-      </Text>
-      {[
-        { label: 'Nombre completo', value: name, onChange: setName, placeholder: 'Tu nombre' },
-        { label: 'Teléfono de contacto', value: phone, onChange: setPhone, placeholder: '+34 600 000 000' },
-        { label: 'Fecha preferida', value: date, onChange: setDate, placeholder: 'dd/mm/aaaa' },
-        { label: 'Notas adicionales', value: notes, onChange: setNotes, placeholder: 'Opcional' },
-      ].map((field) => (
-        <View key={field.label} style={styles.formField}>
-          <Text style={styles.formLabel}>{field.label}</Text>
-          <TextInput
-            style={styles.formInput}
-            value={field.value}
-            onChangeText={field.onChange}
-            placeholder={field.placeholder}
-            placeholderTextColor="#c0c0c0"
-          />
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <TouchableOpacity onPress={onBack} style={{ marginBottom: 16 }}>
+          <Text style={{ color: '#c6a7f8', fontSize: 15, fontWeight: '500' }}>‹ Volver</Text>
+        </TouchableOpacity>
+        <Text style={styles.detailName}>Reservar en {service.name}</Text>
+        <Text style={{ color: '#8c8c8c', fontSize: 13, marginBottom: 20 }}>
+          Completa tus datos y nos pondremos en contacto contigo.
+        </Text>
+
+        <View style={styles.formField}>
+          <Text style={styles.formLabel}>Nombre completo</Text>
+          <TextInput style={styles.formInput} value={name} onChangeText={setName}
+            placeholder="Tu nombre" placeholderTextColor="#c0c0c0" returnKeyType="next" />
         </View>
-      ))}
-      <TouchableOpacity
-        style={[styles.reserveBtn, { opacity: name && phone ? 1 : 0.5 }]}
-        onPress={name && phone ? onSubmit : undefined}
-      >
-        <Text style={styles.reserveBtnText}>Confirmar reserva</Text>
-      </TouchableOpacity>
-    </>
+
+        <View style={styles.formField}>
+          <Text style={styles.formLabel}>Teléfono de contacto</Text>
+          <TextInput style={styles.formInput} value={phone} onChangeText={setPhone}
+            placeholder="+34 600 000 000" placeholderTextColor="#c0c0c0"
+            keyboardType="phone-pad" returnKeyType="next" />
+        </View>
+
+        <View style={styles.formField}>
+          <Text style={styles.formLabel}>Fecha preferida</Text>
+          <View style={styles.dateRow}>
+            <TextInput style={[styles.formInput, styles.dateSegment]} value={dd}
+              onChangeText={handleDd} placeholder="DD" placeholderTextColor="#c0c0c0"
+              keyboardType="number-pad" maxLength={2} textAlign="center" />
+            <Text style={styles.dateSep}>/</Text>
+            <TextInput ref={mmRef} style={[styles.formInput, styles.dateSegment]} value={mm}
+              onChangeText={handleMm} placeholder="MM" placeholderTextColor="#c0c0c0"
+              keyboardType="number-pad" maxLength={2} textAlign="center" />
+            <Text style={styles.dateSep}>/</Text>
+            <TextInput ref={yyyyRef} style={[styles.formInput, styles.dateSegmentYear]} value={yyyy}
+              onChangeText={handleYyyy} placeholder="AAAA" placeholderTextColor="#c0c0c0"
+              keyboardType="number-pad" maxLength={4} textAlign="center" />
+          </View>
+        </View>
+
+        <View style={styles.formField}>
+          <Text style={styles.formLabel}>Notas adicionales</Text>
+          <TextInput style={[styles.formInput, { height: 72 }]} value={notes}
+            onChangeText={setNotes} placeholder="Opcional" placeholderTextColor="#c0c0c0"
+            multiline />
+        </View>
+
+        <TouchableOpacity
+          style={[styles.reserveBtn, { opacity: canSubmit ? 1 : 0.5 }]}
+          onPress={canSubmit ? handleConfirm : undefined}
+        >
+          <Text style={styles.reserveBtnText}>Confirmar reserva</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -364,4 +411,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1c1c1e',
   },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dateSegment: { flex: 1, paddingHorizontal: 8 },
+  dateSegmentYear: { flex: 1.6, paddingHorizontal: 8 },
+  dateSep: { fontSize: 18, color: '#8c8c8c', fontWeight: '500' },
 });

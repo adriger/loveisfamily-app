@@ -35,7 +35,7 @@ export default function HomeScreen({ navigation }: Props) {
   const loadSuggestions = useCallback(async (radius?: number) => {
     setLoading(true);
     try {
-      const result = await api.matching.getSuggestions({ limit: 10 });
+      const result = await api.matching.getSuggestions({ limit: 10, radius_km: radius ?? radiusKm });
       setSuggestions(Array.isArray(result) ? result : []);
       setCurrentIndex(0);
     } catch (err: any) {
@@ -99,7 +99,7 @@ export default function HomeScreen({ navigation }: Props) {
     if (!current) return;
     try {
       await api.matching.createMatch({ targetUserId: current.user_id, matchType: 'instant' });
-      Alert.alert('Conexion enviada', 'Si la otra familia acepta, podreis chatear.');
+      Alert.alert('Conexión enviada', 'Si la otra familia acepta, podréis chatear.');
       setCurrentIndex(prev => prev + 1);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'No se pudo crear la conexion');
@@ -203,8 +203,8 @@ export default function HomeScreen({ navigation }: Props) {
         {!current ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>&#x1F50D;</Text>
-            <Text style={styles.emptyTitle}>Aun no hay familias cerca</Text>
-            <Text style={styles.emptySubtext}>Prueba a ampliar el radio de busqueda o explora la comunidad</Text>
+            <Text style={styles.emptyTitle}>Aún no hay familias cerca</Text>
+            <Text style={styles.emptySubtext}>Prueba a ampliar el radio de búsqueda o explora la comunidad</Text>
             <View style={styles.emptyButtons}>
               <Button title="Ampliar radio" onPress={handleExpandRadius} variant="primary" style={styles.emptyBtn} />
               <Button title="Explorar comunidad" onPress={() => tabNav.navigate('CommunityTab')} variant="secondary" style={styles.emptyBtn} />
@@ -243,7 +243,7 @@ export default function HomeScreen({ navigation }: Props) {
                 <View style={styles.cardBottom}>
                   <Text style={styles.familyName}>{current.displayName}</Text>
                   {current.age ? (
-                    <Text style={styles.familyTagline}>{current.age} anos</Text>
+                    <Text style={styles.familyTagline}>{current.age} años</Text>
                   ) : null}
                   {current.interests && current.interests.length > 0 && (
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagsScroll}>

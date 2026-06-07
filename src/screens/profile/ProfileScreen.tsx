@@ -30,7 +30,7 @@ export default function ProfileScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert('Cerrar sesion', '¿Estas seguro?', [
+    Alert.alert('Cerrar sesión', '¿Estás seguro?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Salir', style: 'destructive', onPress: signOut },
     ]);
@@ -41,11 +41,7 @@ export default function ProfileScreen() {
   return (
     <GradientBackground>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.toolbar}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.backIcon}>&#x2190;</Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.toolbar} />
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.profileCard}>
@@ -59,7 +55,7 @@ export default function ProfileScreen() {
             <Text style={styles.name}>{profile?.displayName}</Text>
             {profile?.location?.city || profile?.age ? (
               <Text style={styles.locationAge}>
-                {[profile?.location?.city, profile?.age ? `${profile.age} anos` : undefined]
+                {[profile?.location?.city, profile?.age ? `${profile.age} años` : undefined]
                   .filter(Boolean)
                   .join(' · ')}
               </Text>
@@ -67,9 +63,6 @@ export default function ProfileScreen() {
             <View style={styles.tierBadge}>
               <Text style={styles.tierText}>{TIER_LABELS[tier]}</Text>
             </View>
-            <TouchableOpacity style={styles.connectBtn}>
-              <Text style={styles.connectBtnText}>Conectar</Text>
-            </TouchableOpacity>
           </View>
 
           {profile?.bio ? (
@@ -90,7 +83,7 @@ export default function ProfileScreen() {
           ) : null}
 
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Composicion familiar</Text>
+            <Text style={styles.sectionTitle}>Composición familiar</Text>
             {editing ? (
               <>
                 <Text style={styles.inputLabel}>Nombre</Text>
@@ -130,7 +123,7 @@ export default function ProfileScreen() {
               <Button title="Editar perfil" onPress={() => setEditing(true)} variant="secondary" />
             )}
             <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-              <Text style={styles.signOutText}>Cerrar sesion</Text>
+              <Text style={styles.signOutText}>Cerrar sesión</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

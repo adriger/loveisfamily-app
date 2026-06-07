@@ -43,7 +43,7 @@ export const api = {
   // ── Matching ────────────────────────────────────────────────────────────────
 
   matching: {
-    getSuggestions: call<{ limit?: number }, MatchSuggestion[]>('getMatchingSuggestions'),
+    getSuggestions: call<{ limit?: number; radius_km?: number }, MatchSuggestion[]>('getMatchingSuggestions'),
 
     createMatch: call<
       { targetUserId: string; matchType?: MatchType },
