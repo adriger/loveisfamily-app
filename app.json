@@ -18,6 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.loveisfamily",
+      "buildNumber": "2",
       "deploymentTarget": "16.4",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -28,6 +29,7 @@
     },
     "android": {
       "package": "com.loveisfamily",
+      "versionCode": 2,
       "predictiveBackGestureEnabled": false,
       "intentFilters": [
         {
