@@ -1,8 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, ScrollView, Modal, Pressable, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import GradientBackground from '../../components/GradientBackground';
 
@@ -30,6 +31,8 @@ const MOCK_SERVICES: Service[] = [
   { id: '7', name: 'Escuela de Familias', category: 'Educación', description: 'Talleres y formación para madres y padres de familias diversas.', location: 'Horta, 5.0 km', rating: 4.4, tags: ['Talleres', 'Formación'], icon: '📚' },
 ];
 
+const SAVED_KEY = 'explore_saved_ids';
+
 export default function ExploreScreen() {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Todos');
@@ -38,10 +41,17 @@ export default function ExploreScreen() {
   const [showReservation, setShowReservation] = useState(false);
   const [activeTab, setActiveTab] = useState<'todos' | 'guardados'>('todos');
 
+  useEffect(() => {
+    AsyncStorage.getItem(SAVED_KEY).then(val => {
+      if (val) setSavedIds(new Set(JSON.parse(val)));
+    });
+  }, []);
+
   const toggleSaved = (id: string) => {
     setSavedIds((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
+      AsyncStorage.setItem(SAVED_KEY, JSON.stringify([...next]));
       return next;
     });
   };

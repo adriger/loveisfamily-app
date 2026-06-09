@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal,
   ActivityIndicator, Alert, ScrollView,
-  PanResponder, Animated,
+  PanResponder, Animated, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -222,6 +222,9 @@ export default function HomeScreen({ navigation }: Props) {
               {...panResponder.panHandlers}
             >
               <View style={styles.cardImagePlaceholder}>
+                {current.photoURL ? (
+                  <Image source={{ uri: current.photoURL }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                ) : null}
                 <View style={styles.cardOverlay} />
 
                 {/* Connect overlay (swipe right) */}

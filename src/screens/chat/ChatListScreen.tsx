@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, TextInput,
+  ActivityIndicator, TextInput, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -104,7 +104,13 @@ export default function ChatListScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.toolbar}>
           <Text style={styles.toolbarTitle}>Mis chats</Text>
-          <TouchableOpacity style={styles.composeBtn}>
+          <TouchableOpacity
+            style={styles.composeBtn}
+            onPress={() => Alert.alert(
+              'Nuevo chat',
+              'Puedes chatear cuando consigáis una conexión mutua. Conecta con familias en la pantalla Familias.',
+            )}
+          >
             <Text style={styles.composeIcon}>&#x270F;</Text>
           </TouchableOpacity>
         </View>
