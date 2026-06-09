@@ -168,4 +168,31 @@ export const api = {
   notifications: {
     registerToken: call<{ token: string; platform: string }, { success: boolean }>('registerPushToken'),
   },
+
+  // ── Services & Reservations ─────────────────────────────────────────────────
+
+  services: {
+    getAll: call<{ category?: string; search?: string }, object[]>('getServices'),
+
+    createReservation: call<{
+      serviceId: string;
+      userName: string;
+      userPhone: string;
+      requestedDate: string;
+      notes?: string;
+    }, { reservationId: string }>('createReservation'),
+
+    getMyReservations: call<Record<string, never>, object[]>('getUserReservations'),
+  },
+
+  // ── Reports ─────────────────────────────────────────────────────────────────
+
+  reports: {
+    report: call<{
+      contentType: 'post' | 'comment' | 'user';
+      contentId: string;
+      reason: string;
+      description?: string;
+    }, { reportId?: string; alreadyReported?: boolean }>('reportContent'),
+  },
 };

@@ -2,50 +2,70 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, ScrollView, Modal, Pressable, KeyboardAvoidingView, Platform, Alert,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../config/firebase';
+import { api } from '../../api/client';
 import GradientBackground from '../../components/GradientBackground';
+import type { ExploreStackParams } from '../../navigation';
 
 interface Service {
   id: string;
   name: string;
   category: string;
   description: string;
-  location: string;
+  city: string;
+  schedule: string;
   rating: number;
   tags: string[];
   icon: string;
-  saved?: boolean;
+  featured: boolean;
 }
 
 const CATEGORIES = ['Todos', 'Salud', 'Legal', 'Educación', 'Ocio', 'Bienestar'];
 
-const MOCK_SERVICES: Service[] = [
-  { id: '1', name: 'Psicología Familiar LGBTI+', category: 'Salud', description: 'Terapia familiar y de pareja especializada en familias diversas.', location: 'Barcelona, 2.1 km', rating: 4.9, tags: ['Terapia', 'Familias'], icon: '🧠', saved: true },
-  { id: '2', name: 'Despacho Arco Legal', category: 'Legal', description: 'Asesoría jurídica en adopción, custodia y derechos LGBTI+.', location: 'Barcelona, 3.4 km', rating: 4.8, tags: ['Adopción', 'Custodia'], icon: '⚖️' },
-  { id: '3', name: 'Guardería Arcoíris', category: 'Educación', description: 'Centro educativo inclusivo para peques de 0 a 6 años.', location: 'Gràcia, 1.8 km', rating: 4.7, tags: ['0-6 años', 'Inclusivo'], icon: '🎒' },
-  { id: '4', name: 'Club Familiar Diverso', category: 'Ocio', description: 'Actividades y eventos para familias diversas cada fin de semana.', location: 'Poble Sec, 4.2 km', rating: 4.6, tags: ['Eventos', 'Fin de semana'], icon: '🎪' },
-  { id: '5', name: 'Centro de Bienestar Familia', category: 'Bienestar', description: 'Yoga familiar, meditación y talleres para toda la familia.', location: 'Eixample, 2.9 km', rating: 4.5, tags: ['Yoga', 'Talleres'], icon: '🧘' },
-  { id: '6', name: 'Pediatría Inclusiva', category: 'Salud', description: 'Equipo pediátrico con experiencia en familias diversas y homoparentales.', location: 'Sant Martí, 3.1 km', rating: 4.9, tags: ['Pediatría', 'Homoparental'], icon: '👶' },
-  { id: '7', name: 'Escuela de Familias', category: 'Educación', description: 'Talleres y formación para madres y padres de familias diversas.', location: 'Horta, 5.0 km', rating: 4.4, tags: ['Talleres', 'Formación'], icon: '📚' },
-];
-
 const SAVED_KEY = 'explore_saved_ids';
 
 export default function ExploreScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<ExploreStackParams>>();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Todos');
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set(['1']));
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [showReservation, setShowReservation] = useState(false);
   const [activeTab, setActiveTab] = useState<'todos' | 'guardados'>('todos');
+  const [services, setServices] = useState<Service[]>([]);
+  const [loadingServices, setLoadingServices] = useState(true);
 
   useEffect(() => {
     AsyncStorage.getItem(SAVED_KEY).then(val => {
       if (val) setSavedIds(new Set(JSON.parse(val)));
     });
   }, []);
+
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        const q = activeCategory === 'Todos'
+          ? query(collection(db, 'services'), where('archived', '==', false))
+          : query(collection(db, 'services'), where('archived', '==', false), where('category', '==', activeCategory));
+        const snapshot = await getDocs(q);
+        const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+        setServices(docs);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        Alert.alert('Error', message);
+      } finally {
+        setLoadingServices(false);
+      }
+    };
+    loadServices();
+  }, [activeCategory]);
 
   const toggleSaved = (id: string) => {
     setSavedIds((prev) => {
@@ -56,14 +76,13 @@ export default function ExploreScreen() {
     });
   };
 
-  const filtered = MOCK_SERVICES.filter((s) => {
+  const filtered = services.filter((s) => {
     const matchSearch =
       search.trim() === '' ||
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()));
-    const matchCat = activeCategory === 'Todos' || s.category === activeCategory;
     const matchTab = activeTab === 'todos' || savedIds.has(s.id);
-    return matchSearch && matchCat && matchTab;
+    return matchSearch && matchTab;
   });
 
   const renderCard = ({ item }: { item: Service }) => (
@@ -74,7 +93,7 @@ export default function ExploreScreen() {
         </View>
         <View style={styles.cardInfo}>
           <Text style={styles.cardName}>{item.name}</Text>
-          <Text style={styles.cardLocation}>📍 {item.location}</Text>
+          <Text style={styles.cardLocation}>📍 {item.city}</Text>
         </View>
         <TouchableOpacity onPress={() => toggleSaved(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={{ fontSize: 20 }}>{savedIds.has(item.id) ? '🔖' : '🏷️'}</Text>
@@ -97,9 +116,11 @@ export default function ExploreScreen() {
   return (
     <GradientBackground>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {/* Toolbar */}
         <View style={styles.toolbar}>
           <Text style={styles.toolbarTitle}>Explorar</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('MyReservations')} style={styles.reservationsBtn}>
+            <Text style={styles.reservationsBtnText}>Mis reservas</Text>
+          </TouchableOpacity>
           <View style={styles.tabRow}>
             <TouchableOpacity
               style={[styles.tabBtn, activeTab === 'todos' && styles.tabBtnActive]}
@@ -116,7 +137,6 @@ export default function ExploreScreen() {
           </View>
         </View>
 
-        {/* Buscador */}
         <View style={styles.searchBar}>
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
@@ -128,7 +148,6 @@ export default function ExploreScreen() {
           />
         </View>
 
-        {/* Chips de categoría */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -146,26 +165,30 @@ export default function ExploreScreen() {
           ))}
         </ScrollView>
 
-        {/* Lista */}
-        <FlatList
-          data={filtered}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          renderItem={renderCard}
-          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>🔍</Text>
-              <Text style={styles.emptyText}>
-                {activeTab === 'guardados' ? 'No tienes lugares guardados' : 'Sin resultados'}
-              </Text>
-              <Text style={styles.emptySubtext}>Prueba con otro filtro</Text>
-            </View>
-          }
-        />
+        {loadingServices ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator size="large" color="#c6a7f8" />
+          </View>
+        ) : (
+          <FlatList
+            data={filtered}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.list}
+            renderItem={renderCard}
+            ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>🔍</Text>
+                <Text style={styles.emptyText}>
+                  {activeTab === 'guardados' ? 'No tienes lugares guardados' : 'Sin resultados'}
+                </Text>
+                <Text style={styles.emptySubtext}>Prueba con otro filtro</Text>
+              </View>
+            }
+          />
+        )}
       </SafeAreaView>
 
-      {/* Modal detalle del servicio */}
       <Modal visible={!!selectedService} transparent animationType="slide">
         <Pressable style={styles.modalOverlay} onPress={() => { setSelectedService(null); setShowReservation(false); }}>
           <Pressable style={styles.detailSheet} onPress={() => {}}>
@@ -176,7 +199,7 @@ export default function ExploreScreen() {
                   <Text style={styles.detailIcon}>{selectedService.icon}</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.detailName}>{selectedService.name}</Text>
-                    <Text style={styles.detailLocation}>📍 {selectedService.location}</Text>
+                    <Text style={styles.detailLocation}>📍 {selectedService.city}</Text>
                   </View>
                   <View style={styles.ratingPill}>
                     <Text style={styles.ratingText}>⭐ {selectedService.rating}</Text>
@@ -191,7 +214,7 @@ export default function ExploreScreen() {
                 </View>
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>ℹ️  Información</Text>
-                  <Text style={styles.detailSectionText}>Lunes a Viernes · 9:00 - 19:00</Text>
+                  <Text style={styles.detailSectionText}>{selectedService.schedule}</Text>
                   <Text style={styles.detailSectionText}>Cita previa requerida</Text>
                 </View>
                 <TouchableOpacity style={styles.reserveBtn} onPress={() => setShowReservation(true)}>
@@ -224,6 +247,7 @@ function ReservationForm({ service, onSubmit, onBack }: { service: Service; onSu
   const [mm, setMm] = useState('');
   const [yyyy, setYyyy] = useState('');
   const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const mmRef = useRef<TextInput>(null);
   const yyyyRef = useRef<TextInput>(null);
 
@@ -242,9 +266,25 @@ function ReservationForm({ service, onSubmit, onBack }: { service: Service; onSu
   const dateValid = dd.length === 2 && mm.length === 2 && yyyy.length === 4;
   const canSubmit = name.trim() && phone.trim() && dateValid;
 
-  const handleConfirm = () => {
-    onSubmit();
-    Alert.alert('Reserva enviada', 'Nos pondremos en contacto contigo para confirmar la cita.');
+  const handleConfirm = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await api.services.createReservation({
+        serviceId: service.id,
+        userName: name,
+        userPhone: phone,
+        requestedDate: `${dd}/${mm}/${yyyy}`,
+        notes,
+      });
+      onSubmit();
+      Alert.alert('Reserva enviada', 'Te contactaremos para confirmar tu cita.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al enviar la reserva';
+      Alert.alert('Error', message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -296,10 +336,14 @@ function ReservationForm({ service, onSubmit, onBack }: { service: Service; onSu
         </View>
 
         <TouchableOpacity
-          style={[styles.reserveBtn, { opacity: canSubmit ? 1 : 0.5 }]}
-          onPress={canSubmit ? handleConfirm : undefined}
+          style={[styles.reserveBtn, { opacity: canSubmit && !submitting ? 1 : 0.5 }]}
+          onPress={canSubmit && !submitting ? handleConfirm : undefined}
         >
-          <Text style={styles.reserveBtnText}>Confirmar reserva</Text>
+          {submitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.reserveBtnText}>Confirmar reserva</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -308,7 +352,10 @@ function ReservationForm({ service, onSubmit, onBack }: { service: Service; onSu
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  toolbar: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8 },
+  toolbar: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 },
+  reservationsBtn: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, backgroundColor: '#ede4fd' },
+  reservationsBtnText: { fontSize: 12, color: '#c6a7f8', fontWeight: '600' },
+  loadingState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   toolbarTitle: { fontSize: 28, fontWeight: '700', color: '#141414', marginBottom: 12 },
   tabRow: { flexDirection: 'row', backgroundColor: '#f0ecfa', borderRadius: 12, padding: 3, alignSelf: 'flex-start' },
   tabBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 10 },

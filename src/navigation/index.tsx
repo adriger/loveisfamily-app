@@ -27,6 +27,7 @@ import WelcomeScreen from '../screens/onboarding/WelcomeScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import FamilyProfileScreen from '../screens/home/FamilyProfileScreen';
 import ExploreScreen from '../screens/explore/ExploreScreen';
+import MyReservationsScreen from '../screens/explore/MyReservationsScreen';
 import ChatListScreen from '../screens/chat/ChatListScreen';
 import ChatScreen from '../screens/chat/ChatScreen';
 import FeedScreen from '../screens/community/FeedScreen';
@@ -68,6 +69,11 @@ export type ChatStackParams = {
   Chat: { conversationId: string; participantName: string };
 };
 
+export type ExploreStackParams = {
+  ExploreMain: undefined;
+  MyReservations: undefined;
+};
+
 export type ProfileSetupStackParams = {
   VerifyEmail: undefined;
   Privacy: undefined;
@@ -94,6 +100,7 @@ const AuthStack = createNativeStackNavigator<AuthStackParams>();
 const HomeStack = createNativeStackNavigator<HomeStackParams>();
 const Tab = createBottomTabNavigator<MainTabParams>();
 const ChatStack = createNativeStackNavigator<ChatStackParams>();
+const ExploreStack = createNativeStackNavigator<ExploreStackParams>();
 const CommunityStack = createNativeStackNavigator<CommunityStackParams>();
 const ProfileSetupStack = createNativeStackNavigator<ProfileSetupStackParams>();
 const RootStack = createNativeStackNavigator<RootStackParams>();
@@ -104,6 +111,19 @@ function HomeNavigator() {
       <HomeStack.Screen name="HomeMain" component={HomeScreen} />
       <HomeStack.Screen name="FamilyProfile" component={FamilyProfileScreen} />
     </HomeStack.Navigator>
+  );
+}
+
+function ExploreNavigator() {
+  return (
+    <ExploreStack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+      <ExploreStack.Screen name="ExploreMain" component={ExploreScreen} />
+      <ExploreStack.Screen name="MyReservations">
+        {({ navigation }) => (
+          <MyReservationsScreen onBack={() => navigation.goBack()} />
+        )}
+      </ExploreStack.Screen>
+    </ExploreStack.Navigator>
   );
 }
 
@@ -168,7 +188,7 @@ function MainTabs() {
       />
       <Tab.Screen
         name="Explore"
-        component={ExploreScreen}
+        component={ExploreNavigator}
         options={{ tabBarLabel: 'Explorar', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>&#x1F50D;</Text> }}
       />
       <Tab.Screen

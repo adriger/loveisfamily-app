@@ -176,6 +176,43 @@ export default function FeedScreen() {
                     <Text style={styles.footerAction}>&#x2665; {item.likes_count}</Text>
                   </TouchableOpacity>
                   <Text style={styles.footerAction}>&#x1F4AC; {item.comments_count}</Text>
+                  <TouchableOpacity
+                    style={styles.reportBtn}
+                    onPress={() => {
+                      Alert.alert('Denunciar publicación', undefined, [
+                        {
+                          text: 'Contenido inapropiado',
+                          onPress: async () => {
+                            try {
+                              await api.reports.report({ contentType: 'post', contentId: item.id, reason: 'contenido_inapropiado' });
+                              Alert.alert('Gracias', 'Gracias por tu reporte. Lo revisaremos pronto.');
+                            } catch {}
+                          },
+                        },
+                        {
+                          text: 'Spam',
+                          onPress: async () => {
+                            try {
+                              await api.reports.report({ contentType: 'post', contentId: item.id, reason: 'spam' });
+                              Alert.alert('Gracias', 'Gracias por tu reporte. Lo revisaremos pronto.');
+                            } catch {}
+                          },
+                        },
+                        {
+                          text: 'Acoso',
+                          onPress: async () => {
+                            try {
+                              await api.reports.report({ contentType: 'post', contentId: item.id, reason: 'acoso' });
+                              Alert.alert('Gracias', 'Gracias por tu reporte. Lo revisaremos pronto.');
+                            } catch {}
+                          },
+                        },
+                        { text: 'Cancelar', style: 'cancel' },
+                      ]);
+                    }}
+                  >
+                    <Text style={styles.reportBtnText}>Denunciar</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
@@ -342,6 +379,8 @@ const styles = StyleSheet.create({
     borderTopColor: '#f5f5f5',
   },
   footerAction: { fontSize: 14, color: '#8c8c8c' },
+  reportBtn: { flex: 1, alignItems: 'flex-end' },
+  reportBtnText: { fontSize: 12, color: '#8c8c8c' },
   modal: { flex: 1, padding: 24, backgroundColor: '#ffffff' },
   modalTitle: { fontSize: 22, fontWeight: '700', marginTop: 20, marginBottom: 24, color: '#1c1c1e' },
   modalInput: {
