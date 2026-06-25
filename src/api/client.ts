@@ -33,6 +33,8 @@ export const api = {
 
     updateProfile: call<UpdateProfilePayload, void>('updateUserProfile'),
 
+    initSocialProfile: call<{ email?: string; displayName?: string; photoURL?: string | null }, void>('initSocialProfile'),
+
     deleteAccount: call<Record<string, never>, void>('deleteUserAccount'),
 
     sendVerificationCode: call<Record<string, never>, { success: boolean; code?: string }>('sendVerificationCode'),

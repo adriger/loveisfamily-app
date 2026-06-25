@@ -11,7 +11,7 @@ import {
 import { auth } from '../config/firebase';
 import { api } from '../api/client';
 import type { User } from '../config/types';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 interface AuthState {
@@ -31,26 +31,6 @@ interface AuthState {
   updateProfile: (payload: import('../config/types').UpdateProfilePayload) => Promise<void>;
 }
 
-async function ensureFirestoreProfile(user: FirebaseUser) {
-  const ref = doc(db, 'users', user.uid);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) {
-    await setDoc(ref, {
-      id: user.uid,
-      email: user.email ?? '',
-      username: '',
-      displayName: user.displayName ?? '',
-      photoURL: user.photoURL ?? null,
-      bio: '',
-      interests: [],
-      location: null,
-      subscription_type: 'free',
-      subscription_end_date: null,
-      created_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
-    });
-  }
-}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   firebaseUser: null,
@@ -96,7 +76,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const credential = GoogleAuthProvider.credential(idToken);
       const result = await signInWithCredential(auth, credential);
-      await ensureFirestoreProfile(result.user);
+      // Crea el perfil en Firestore vía Cloud Function (Admin SDK, bypasses rules)
+      await api.auth.initSocialProfile({
+        email: result.user.email ?? '',
+        displayName: result.user.displayName ?? '',
+        photoURL: result.user.photoURL ?? null,
+      });
     } finally {
       set({ isLoading: false });
     }
@@ -108,11 +93,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const provider = new OAuthProvider('apple.com');
       const credential = provider.credential({ idToken, rawNonce: nonce });
       const result = await signInWithCredential(auth, credential);
-      if (displayName && !result.user.displayName) {
-        await ensureFirestoreProfile({ ...result.user, displayName } as FirebaseUser);
-      } else {
-        await ensureFirestoreProfile(result.user);
-      }
+      await api.auth.initSocialProfile({
+        email: result.user.email ?? '',
+        displayName: displayName ?? result.user.displayName ?? '',
+        photoURL: result.user.photoURL ?? null,
+      });
     } finally {
       set({ isLoading: false });
     }

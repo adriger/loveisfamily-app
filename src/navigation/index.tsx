@@ -232,9 +232,15 @@ function AuthNavigator() {
 
 function ProfileSetupNavigator() {
   const store = useOnboardingStore();
+  const { firebaseUser } = useAuthStore();
+
+  // Usuarios de Apple/Google tienen emailVerified=true → saltar verificación de email
+  const initialRouteName: keyof ProfileSetupStackParams =
+    firebaseUser?.emailVerified ? 'Privacy' : 'VerifyEmail';
 
   return (
     <ProfileSetupStack.Navigator
+      initialRouteName={initialRouteName}
       screenOptions={{
         headerShown: false,
         gestureEnabled: false,
