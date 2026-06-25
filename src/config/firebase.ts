@@ -7,12 +7,12 @@ import { getFunctions } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyB17PvOZjdbGGXrooCsIVvT-UZ4wkiq6sw',
+  apiKey: 'AIzaSyAAtDpnvxK0A6nSdRazoHRqeTQdBqMOUIg',
   authDomain: 'loveisfamily-dev.firebaseapp.com',
   projectId: 'loveisfamily-dev',
   storageBucket: 'loveisfamily-dev.firebasestorage.app',
   messagingSenderId: '747947455235',
-  appId: '1:747947455235:web:3686a55c07d6e540966f36',
+  appId: '1:747947455235:ios:102109b5c40a222b966f36',
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
