@@ -1,15 +1,17 @@
 import { create } from 'zustand';
 import {
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  signInWithCredential,
+  GoogleAuthProvider,
+  OAuthProvider,
   User as FirebaseUser,
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { api } from '../api/client';
 import type { User } from '../config/types';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 interface AuthState {
@@ -19,13 +21,35 @@ interface AuthState {
   isInitialized: boolean;
   profileComplete: boolean;
 
-  // Actions
   initialize: () => () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, username: string) => Promise<void>;
+  signInWithGoogle: (idToken: string) => Promise<void>;
+  signInWithApple: (idToken: string, nonce: string, displayName?: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateProfile: (payload: import('../config/types').UpdateProfilePayload) => Promise<void>;
+}
+
+async function ensureFirestoreProfile(user: FirebaseUser) {
+  const ref = doc(db, 'users', user.uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    await setDoc(ref, {
+      id: user.uid,
+      email: user.email ?? '',
+      username: '',
+      displayName: user.displayName ?? '',
+      photoURL: user.photoURL ?? null,
+      bio: '',
+      interests: [],
+      location: null,
+      subscription_type: 'free',
+      subscription_end_date: null,
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    });
+  }
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -62,6 +86,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await api.auth.createUser({ email, password, username });
       await signInWithEmailAndPassword(auth, email, password);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  signInWithGoogle: async (idToken: string) => {
+    set({ isLoading: true });
+    try {
+      const credential = GoogleAuthProvider.credential(idToken);
+      const result = await signInWithCredential(auth, credential);
+      await ensureFirestoreProfile(result.user);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  signInWithApple: async (idToken: string, nonce: string, displayName?: string) => {
+    set({ isLoading: true });
+    try {
+      const provider = new OAuthProvider('apple.com');
+      const credential = provider.credential({ idToken, rawNonce: nonce });
+      const result = await signInWithCredential(auth, credential);
+      if (displayName && !result.user.displayName) {
+        await ensureFirestoreProfile({ ...result.user, displayName } as FirebaseUser);
+      } else {
+        await ensureFirestoreProfile(result.user);
+      }
     } finally {
       set({ isLoading: false });
     }

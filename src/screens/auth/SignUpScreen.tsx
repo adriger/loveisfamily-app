@@ -16,6 +16,7 @@ import { AuthStackParams } from '../../navigation';
 import { useAuthStore } from '../../store/authStore';
 import GradientBackground from '../../components/GradientBackground';
 import Button from '../../components/Button';
+import SocialAuthButtons from '../../components/SocialAuthButtons';
 import { theme } from '../../config/theme';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParams, 'SignUp'> };
@@ -27,6 +28,7 @@ const passwordRules = [
   { label: 'Una letra mayúscula', test: (p: string) => /[A-Z]/.test(p) },
   { label: 'Una letra minúscula', test: (p: string) => /[a-z]/.test(p) },
   { label: 'Un número', test: (p: string) => /\d/.test(p) },
+  { label: 'Un carácter especial (!@#$%...)', test: (p: string) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
 ];
 
 export default function SignUpScreen({ navigation }: Props) {
@@ -163,6 +165,8 @@ export default function SignUpScreen({ navigation }: Props) {
               loading={isLoading}
               style={!allFilled ? styles.buttonDisabledBg : undefined}
             />
+
+            <SocialAuthButtons />
 
             {/* Link to SignIn */}
             <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('SignIn')}>

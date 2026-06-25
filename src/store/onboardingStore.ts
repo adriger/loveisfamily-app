@@ -14,6 +14,12 @@ interface LocationData {
   city?: string;
 }
 
+interface ConsentData {
+  privacyVersion: string;
+  termsVersion: string;
+  acceptedAt: string;
+}
+
 interface OnboardingState {
   username: string;
   birthdate: string;
@@ -22,6 +28,7 @@ interface OnboardingState {
   composition: FamilyComposition;
   interests: string[];
   bio: string;
+  consent?: ConsentData;
 
   setUsername: (username: string) => void;
   setBirthdate: (birthdate: string) => void;
@@ -30,6 +37,7 @@ interface OnboardingState {
   setComposition: (composition: FamilyComposition) => void;
   setInterests: (interests: string[]) => void;
   setBio: (bio: string) => void;
+  setConsent: (consent: ConsentData) => void;
   submit: () => Promise<void>;
   reset: () => void;
 }
@@ -50,9 +58,10 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   setComposition: (composition) => set({ composition }),
   setInterests: (interests) => set({ interests }),
   setBio: (bio) => set({ bio }),
+  setConsent: (consent) => set({ consent }),
 
   submit: async () => {
-    const { username, birthdate, photoURL, location, composition, interests, bio } = get();
+    const { username, birthdate, photoURL, location, composition, interests, bio, consent } = get();
 
     const bioText = [
       composition.household,
@@ -71,7 +80,12 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       interests,
       photoURL,
       ...(location ? { location } : {}),
-    });
+      ...(consent ? {
+        consent_privacy_version: consent.privacyVersion,
+        consent_terms_version: consent.termsVersion,
+        consent_accepted_at: consent.acceptedAt,
+      } : {}),
+    } as Parameters<typeof api.auth.updateProfile>[0]);
 
     await useAuthStore.getState().refreshProfile();
   },
@@ -85,5 +99,6 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       composition: {},
       interests: [],
       bio: '',
+      consent: undefined,
     }),
 }));

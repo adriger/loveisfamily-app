@@ -16,6 +16,7 @@ import { AuthStackParams } from '../../navigation';
 import { useAuthStore } from '../../store/authStore';
 import GradientBackground from '../../components/GradientBackground';
 import Button from '../../components/Button';
+import SocialAuthButtons from '../../components/SocialAuthButtons';
 import { theme } from '../../config/theme';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParams, 'SignIn'> };
@@ -95,6 +96,8 @@ export default function SignInScreen({ navigation }: Props) {
               loading={isLoading}
               style={!canSubmit ? styles.buttonDisabledBg : undefined}
             />
+
+            <SocialAuthButtons />
 
             {/* Link to SignUp */}
             <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('SignUp')}>

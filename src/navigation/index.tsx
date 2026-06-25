@@ -254,7 +254,10 @@ function ProfileSetupNavigator() {
       <ProfileSetupStack.Screen name="Privacy">
         {({ navigation }) => (
           <PrivacyScreen
-            onNext={() => navigation.navigate('Username')}
+            onNext={(consent) => {
+              store.setConsent({ ...consent, acceptedAt: new Date().toISOString() });
+              navigation.navigate('Username');
+            }}
             onBack={() => navigation.goBack()}
           />
         )}
@@ -287,7 +290,7 @@ function ProfileSetupNavigator() {
       <ProfileSetupStack.Screen name="ProfilePhoto">
         {({ navigation }) => (
           <ProfilePhotoScreen
-            onNext={(photoURL) => {
+            onNext={(photoURL: string) => {
               store.setPhotoURL(photoURL);
               navigation.navigate('Location');
             }}
@@ -307,6 +310,7 @@ function ProfileSetupNavigator() {
           />
         )}
       </ProfileSetupStack.Screen>
+
 
       <ProfileSetupStack.Screen name="FamilyComposition">
         {({ navigation }) => (

@@ -18,7 +18,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.loveisfamily",
-      "buildNumber": "5",
+      "buildNumber": "6",
+      "usesAppleSignIn": true,
       "deploymentTarget": "16.4",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -61,7 +62,9 @@
           }
         }
       ],
-      "./plugins/withFollyFix"
+      "./plugins/withFollyFix",
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "extra": {
       "eas": {
