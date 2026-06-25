@@ -12,7 +12,7 @@ const firebaseConfig = {
   projectId: 'loveisfamily-dev',
   storageBucket: 'loveisfamily-dev.firebasestorage.app',
   messagingSenderId: '747947455235',
-  appId: '1:747947455235:ios:102109b5c40a222b966f36',
+  appId: '1:747947455235:ios:f5b67dc74a8524fb966f36',
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
