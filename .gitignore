@@ -46,3 +46,5 @@ google-services*.json
 
 # Claude Code agent skills cache
 .agents/
+com.loveisfamily.bak
+credentials.json.bak
