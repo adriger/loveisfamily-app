@@ -12,7 +12,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 // Google OAuth — usa el client ID web de Firebase (no el nativo)
 // Configura estos valores en tu Firebase Console > Authentication > Sign-in method > Google
-const GOOGLE_CLIENT_ID = '747947455235-web.apps.googleusercontent.com'; // reemplaza con tu Web Client ID real
+const GOOGLE_CLIENT_ID = '747947455235-edn6gce07illke8qkhv5pdbc8d0k75uk.apps.googleusercontent.com';
 
 interface Props {
   onSuccess?: () => void;

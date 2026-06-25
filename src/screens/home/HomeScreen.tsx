@@ -110,6 +110,15 @@ export default function HomeScreen({ navigation }: Props) {
     setCurrentIndex(prev => prev + 1);
   }, []);
 
+  // Refs para que el PanResponder (creado una sola vez) llame siempre
+  // a la versión más reciente de los handlers sin stale closure.
+  const handleConnectRef = useRef(handleConnect);
+  const handleSkipRef = useRef(handleSkip);
+  const resetCardRef = useRef(resetCard);
+  useEffect(() => { handleConnectRef.current = handleConnect; }, [handleConnect]);
+  useEffect(() => { handleSkipRef.current = handleSkip; }, [handleSkip]);
+  useEffect(() => { resetCardRef.current = resetCard; }, [resetCard]);
+
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_evt, gestureState) =>
@@ -123,29 +132,26 @@ export default function HomeScreen({ navigation }: Props) {
       onPanResponderRelease: (_evt, gestureState) => {
         const { dx } = gestureState;
         if (dx > 120) {
-          // Swipe right → connect
           Animated.spring(translateX, {
             toValue: 500,
             tension: 60,
             friction: 8,
             useNativeDriver: false,
           }).start(() => {
-            handleConnect();
-            resetCard();
+            handleConnectRef.current();
+            resetCardRef.current();
           });
         } else if (dx < -120) {
-          // Swipe left → skip
           Animated.spring(translateX, {
             toValue: -500,
             tension: 60,
             friction: 8,
             useNativeDriver: false,
           }).start(() => {
-            handleSkip();
-            resetCard();
+            handleSkipRef.current();
+            resetCardRef.current();
           });
         } else {
-          // Spring back to center
           Animated.spring(translateX, {
             toValue: 0,
             tension: 100,
