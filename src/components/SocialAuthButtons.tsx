@@ -55,23 +55,25 @@ export default function SocialAuthButtons({ onSuccess }: Props) {
   const handleApple = async () => {
     setLoadingProvider('apple');
     try {
-      const nonce = await Crypto.digestStringAsync(
+      // rawNonce → Apple recibe el hash SHA256, Firebase recibe el raw
+      const rawNonce = Math.random().toString(36).substring(2);
+      const hashedNonce = await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
-        Math.random().toString(36),
+        rawNonce,
       );
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
-        nonce,
+        nonce: hashedNonce,
       });
       const displayName = [
         credential.fullName?.givenName,
         credential.fullName?.familyName,
       ].filter(Boolean).join(' ') || undefined;
 
-      await signInWithApple(credential.identityToken!, nonce, displayName);
+      await signInWithApple(credential.identityToken!, rawNonce, displayName);
       onSuccess?.();
     } catch (err: unknown) {
       if ((err as { code?: string }).code !== 'ERR_REQUEST_CANCELED') {
