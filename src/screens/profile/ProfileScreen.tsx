@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   TextInput, Alert, Image, ActivityIndicator, Linking,
+  ActionSheetIOS, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -13,6 +14,7 @@ import { api } from '../../api/client';
 import { storage } from '../../config/firebase';
 
 const TIER_LABELS = { free: 'Gratuito', premium: 'Premium', vip: 'VIP' };
+const MAX_PHOTOS = 5;
 
 const ALL_INTERESTS = [
   'Parques y naturaleza', 'Deporte', 'Arte y manualidades', 'Música',
@@ -20,17 +22,30 @@ const ALL_INTERESTS = [
   'Juegos de mesa', 'Voluntariado', 'Teatro', 'Tecnología',
 ];
 
+function initialPhotos(profile: ReturnType<typeof useAuthStore>['profile']): string[] {
+  if (profile?.photos && profile.photos.length > 0) return profile.photos;
+  if (profile?.photoURL) return [profile.photoURL];
+  return [];
+}
+
 export default function ProfileScreen() {
   const { profile, firebaseUser, signOut, refreshProfile } = useAuthStore();
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
   const [bio, setBio] = useState(profile?.bio || '');
   const [interests, setInterests] = useState<string[]>(profile?.interests || []);
-  const [uploading, setUploading] = useState(false);
+  const [photos, setPhotos] = useState<string[]>(() => initialPhotos(profile));
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
 
   const handleSave = async () => {
     try {
-      await api.auth.updateProfile({ displayName, bio, interests });
+      await api.auth.updateProfile({
+        displayName,
+        bio,
+        interests,
+        photos,
+        photoURL: photos[0] || undefined,
+      });
       await refreshProfile();
       setEditing(false);
     } catch (err: any) {
@@ -43,46 +58,108 @@ export default function ProfileScreen() {
     setDisplayName(profile?.displayName || '');
     setBio(profile?.bio || '');
     setInterests(profile?.interests || []);
+    setPhotos(initialPhotos(profile));
   };
 
-  const handlePhotoPress = async () => {
-    if (!editing) return;
-    const { status, canAskAgain } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      if (!canAskAgain) {
-        Alert.alert(
-          'Acceso bloqueado',
-          'Permite el acceso en Ajustes > LoveIsFamily > Fotos.',
-          [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Ajustes', onPress: () => Linking.openSettings() },
-          ],
-        );
-      }
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    const localUri = result.assets[0].uri;
-    setUploading(true);
+  const uploadAndAdd = async (localUri: string) => {
+    const slotIndex = photos.length;
+    setUploadingIndex(slotIndex);
     try {
       const response = await fetch(localUri);
       const blob = await response.blob();
-      const storageRef = ref(storage, `profiles/${firebaseUser?.uid}/avatar.jpg`);
+      const storageRef = ref(storage, `profiles/${firebaseUser?.uid}/photo_${Date.now()}.jpg`);
       await uploadBytes(storageRef, blob);
-      const photoURL = await getDownloadURL(storageRef);
-      await api.auth.updateProfile({ photoURL });
-      await refreshProfile();
+      const url = await getDownloadURL(storageRef);
+      setPhotos(prev => [...prev, url]);
     } catch {
       Alert.alert('Error', 'No se pudo subir la foto. Inténtalo de nuevo.');
     } finally {
-      setUploading(false);
+      setUploadingIndex(null);
     }
+  };
+
+  const pickPhoto = async (source: 'library' | 'camera') => {
+    if (source === 'library') {
+      const { status, canAskAgain } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        if (!canAskAgain) {
+          Alert.alert(
+            'Acceso bloqueado',
+            'Permite el acceso en Ajustes > LoveIsFamily > Fotos.',
+            [{ text: 'Cancelar', style: 'cancel' }, { text: 'Ajustes', onPress: () => Linking.openSettings() }],
+          );
+        }
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) await uploadAndAdd(result.assets[0].uri);
+    } else {
+      const { status, canAskAgain } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        if (!canAskAgain) {
+          Alert.alert(
+            'Acceso bloqueado',
+            'Permite el acceso en Ajustes > LoveIsFamily > Cámara.',
+            [{ text: 'Cancelar', style: 'cancel' }, { text: 'Ajustes', onPress: () => Linking.openSettings() }],
+          );
+        }
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) await uploadAndAdd(result.assets[0].uri);
+    }
+  };
+
+  const handleAddPhoto = () => {
+    if (photos.length >= MAX_PHOTOS) return;
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ['Cancelar', 'Hacer una foto', 'Elegir de galería'], cancelButtonIndex: 0 },
+        (index) => {
+          if (index === 1) pickPhoto('camera');
+          if (index === 2) pickPhoto('library');
+        },
+      );
+    } else {
+      Alert.alert('Añadir foto', undefined, [
+        { text: 'Hacer una foto', onPress: () => pickPhoto('camera') },
+        { text: 'Elegir de galería', onPress: () => pickPhoto('library') },
+        { text: 'Cancelar', style: 'cancel' },
+      ]);
+    }
+  };
+
+  const handlePhotoOptions = (index: number) => {
+    if (!editing) return;
+    const options = index === 0
+      ? ['Cancelar', 'Eliminar foto principal']
+      : ['Cancelar', 'Establecer como principal', 'Eliminar'];
+    ActionSheetIOS.showActionSheetWithOptions(
+      { options, cancelButtonIndex: 0, destructiveButtonIndex: index === 0 ? 1 : 2 },
+      (btn) => {
+        if (index === 0 && btn === 1) {
+          setPhotos(prev => prev.slice(1));
+        } else if (index > 0 && btn === 1) {
+          setPhotos(prev => {
+            const arr = [...prev];
+            [arr[0], arr[index]] = [arr[index], arr[0]];
+            return arr;
+          });
+        } else if (index > 0 && btn === 2) {
+          setPhotos(prev => prev.filter((_, i) => i !== index));
+        }
+      },
+    );
   };
 
   const toggleInterest = (interest: string) => {
@@ -99,6 +176,7 @@ export default function ProfileScreen() {
   };
 
   const tier = (profile?.subscription_type || 'free') as keyof typeof TIER_LABELS;
+  const mainPhoto = photos[0] || null;
 
   return (
     <GradientBackground>
@@ -107,24 +185,17 @@ export default function ProfileScreen() {
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.profileCard}>
-            <TouchableOpacity
-              style={styles.avatarWrap}
-              onPress={handlePhotoPress}
-              activeOpacity={editing ? 0.7 : 1}
-            >
+            <View style={styles.avatarWrap}>
               <View style={styles.avatar}>
-                {uploading ? (
-                  <ActivityIndicator color="#c6a7f8" />
-                ) : profile?.photoURL ? (
-                  <Image source={{ uri: profile.photoURL }} style={styles.avatarImage} />
+                {mainPhoto ? (
+                  <Image source={{ uri: mainPhoto }} style={styles.avatarImage} />
                 ) : (
                   <Text style={styles.avatarText}>
                     {profile?.displayName?.charAt(0).toUpperCase() || '?'}
                   </Text>
                 )}
               </View>
-              {editing && <Text style={styles.avatarEditHint}>Cambiar foto</Text>}
-            </TouchableOpacity>
+            </View>
 
             <Text style={styles.name}>{profile?.displayName}</Text>
             {profile?.location?.city || profile?.age ? (
@@ -138,6 +209,73 @@ export default function ProfileScreen() {
               <Text style={styles.tierText}>{TIER_LABELS[tier]}</Text>
             </View>
           </View>
+
+          {/* Photo gallery */}
+          {(photos.length > 0 || editing) && (
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Mis fotos</Text>
+                {editing && (
+                  <Text style={styles.sectionHint}>{photos.length}/{MAX_PHOTOS}</Text>
+                )}
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.photosRow}>
+                  {photos.map((uri, i) => (
+                    <TouchableOpacity
+                      key={uri + i}
+                      style={styles.photoThumb}
+                      onPress={() => handlePhotoOptions(i)}
+                      activeOpacity={editing ? 0.7 : 1}
+                    >
+                      <Image source={{ uri }} style={styles.photoThumbImg} />
+                      {i === 0 && (
+                        <View style={styles.mainBadge}>
+                          <Text style={styles.mainBadgeText}>Principal</Text>
+                        </View>
+                      )}
+                      {editing && (
+                        <TouchableOpacity
+                          style={styles.photoRemoveBtn}
+                          onPress={() => {
+                            if (i === 0) {
+                              setPhotos(prev => prev.slice(1));
+                            } else {
+                              setPhotos(prev => prev.filter((_, idx) => idx !== i));
+                            }
+                          }}
+                        >
+                          <Text style={styles.photoRemoveText}>✕</Text>
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+
+                  {editing && photos.length < MAX_PHOTOS && (
+                    uploadingIndex !== null ? (
+                      <View style={[styles.photoThumb, styles.photoThumbAdd]}>
+                        <ActivityIndicator color="#c6a7f8" />
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.photoThumb, styles.photoThumbAdd]}
+                        onPress={handleAddPhoto}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.photoAddIcon}>+</Text>
+                        <Text style={styles.photoAddLabel}>Añadir</Text>
+                      </TouchableOpacity>
+                    )
+                  )}
+                </View>
+              </ScrollView>
+              {editing && (
+                <Text style={styles.photoTip}>
+                  Toca una foto para establecerla como principal o eliminarla.
+                </Text>
+              )}
+            </View>
+          )}
 
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Composición familiar</Text>
@@ -250,7 +388,6 @@ const styles = StyleSheet.create({
   },
   avatarImage: { width: 80, height: 80, borderRadius: 40 },
   avatarText: { fontSize: 32, fontWeight: '700', color: '#1c1c1e' },
-  avatarEditHint: { fontSize: 12, color: '#c6a7f8', marginTop: 4, fontWeight: '500' },
   name: { fontSize: 17, fontWeight: '600', color: '#1c1c1e', marginBottom: 4 },
   locationAge: { fontSize: 14, color: '#8c8c8c', marginBottom: 10 },
   tierBadge: {
@@ -273,7 +410,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  sectionTitle: { fontSize: 17, fontWeight: '600', color: '#1c1c1e', marginBottom: 10 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  sectionTitle: { fontSize: 17, fontWeight: '600', color: '#1c1c1e', flex: 1 },
+  sectionHint: { fontSize: 13, color: '#8c8c8c' },
   sectionBody: { fontSize: 14, color: '#262626', lineHeight: 20 },
   sectionBodySecondary: { fontSize: 13, color: '#8c8c8c', marginTop: 2 },
   inputLabel: { fontSize: 13, color: '#8c8c8c', marginBottom: 4 },
@@ -287,6 +426,49 @@ const styles = StyleSheet.create({
     color: '#1c1c1e',
   },
   textArea: { height: 80, textAlignVertical: 'top' },
+  photosRow: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
+  photoThumb: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  photoThumbImg: { width: '100%', height: '100%' },
+  photoThumbAdd: {
+    backgroundColor: '#f0ecfa',
+    borderWidth: 2,
+    borderColor: '#c6a7f8',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  photoAddIcon: { fontSize: 22, color: '#c6a7f8', lineHeight: 26 },
+  photoAddLabel: { fontSize: 10, color: '#c6a7f8', fontWeight: '600' },
+  mainBadge: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(198,167,248,0.85)',
+    paddingVertical: 2,
+    alignItems: 'center',
+  },
+  mainBadgeText: { fontSize: 10, color: '#fff', fontWeight: '600' },
+  photoRemoveBtn: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoRemoveText: { color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 12 },
+  photoTip: { fontSize: 12, color: '#8c8c8c', marginTop: 8 },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   interestTag: {
     backgroundColor: '#f5f5f5',

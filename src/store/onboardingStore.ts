@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { api } from '../api/client';
+import { storage } from '../config/firebase';
 import { useAuthStore } from './authStore';
 
 interface FamilyComposition {
@@ -23,7 +25,7 @@ interface ConsentData {
 interface OnboardingState {
   username: string;
   birthdate: string;
-  photoURL?: string;
+  photos: string[];
   location?: LocationData;
   composition: FamilyComposition;
   interests: string[];
@@ -32,7 +34,7 @@ interface OnboardingState {
 
   setUsername: (username: string) => void;
   setBirthdate: (birthdate: string) => void;
-  setPhotoURL: (photoURL?: string) => void;
+  setPhotos: (photos: string[]) => void;
   setLocation: (location?: LocationData) => void;
   setComposition: (composition: FamilyComposition) => void;
   setInterests: (interests: string[]) => void;
@@ -42,10 +44,18 @@ interface OnboardingState {
   reset: () => void;
 }
 
+async function uploadLocalPhoto(localUri: string, uid: string): Promise<string> {
+  const response = await fetch(localUri);
+  const blob = await response.blob();
+  const storageRef = ref(storage, `profiles/${uid}/photo_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`);
+  await uploadBytes(storageRef, blob);
+  return getDownloadURL(storageRef);
+}
+
 export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   username: '',
   birthdate: '',
-  photoURL: undefined,
+  photos: [],
   location: undefined,
   composition: {},
   interests: [],
@@ -53,7 +63,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
 
   setUsername: (username) => set({ username }),
   setBirthdate: (birthdate) => set({ birthdate }),
-  setPhotoURL: (photoURL) => set({ photoURL }),
+  setPhotos: (photos) => set({ photos }),
   setLocation: (location) => set({ location }),
   setComposition: (composition) => set({ composition }),
   setInterests: (interests) => set({ interests }),
@@ -61,7 +71,8 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   setConsent: (consent) => set({ consent }),
 
   submit: async () => {
-    const { username, birthdate, photoURL, location, composition, interests, bio, consent } = get();
+    const { username, birthdate, photos, location, composition, interests, bio, consent } = get();
+    const uid = useAuthStore.getState().firebaseUser?.uid;
 
     const bioText = [
       composition.household,
@@ -71,15 +82,23 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       .filter(Boolean)
       .join(' · ');
 
-    // TODO: If photoURL starts with 'file://' or 'content://', it is a local URI
-    // and should be uploaded to Firebase Storage before calling updateProfile.
-    // For now we pass the local URI as-is until storage upload is implemented.
+    // Upload any local file:// URIs to Firebase Storage
+    const uploadedPhotos: string[] = [];
+    for (const uri of photos) {
+      if ((uri.startsWith('file://') || uri.startsWith('content://')) && uid) {
+        uploadedPhotos.push(await uploadLocalPhoto(uri, uid));
+      } else {
+        uploadedPhotos.push(uri);
+      }
+    }
+
     await api.auth.updateProfile({
       username,
       displayName: username,
       bio: bio || bioText,
       interests,
-      photoURL,
+      photoURL: uploadedPhotos[0] || undefined,
+      photos: uploadedPhotos,
       ...(location ? { location } : {}),
       ...(consent ? {
         consent_privacy_version: consent.privacyVersion,
@@ -95,7 +114,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     set({
       username: '',
       birthdate: '',
-      photoURL: undefined,
+      photos: [],
       location: undefined,
       composition: {},
       interests: [],

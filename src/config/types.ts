@@ -16,6 +16,7 @@ export interface User {
   username: string;
   displayName: string;
   photoURL: string | null;
+  photos: string[];
   bio: string;
   age: number | null;
   gender: string | null;
@@ -35,6 +36,7 @@ export interface UpdateProfilePayload {
   interests?: string[];
   location?: UserLocation;
   photoURL?: string;
+  photos?: string[];
 }
 
 // ── Match ─────────────────────────────────────────────────────────────────────

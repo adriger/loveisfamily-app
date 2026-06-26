@@ -320,8 +320,8 @@ function ProfileSetupNavigator() {
       <ProfileSetupStack.Screen name="ProfilePhoto">
         {({ navigation }) => (
           <ProfilePhotoScreen
-            onNext={(photoURL: string) => {
-              store.setPhotoURL(photoURL);
+            onNext={(photos: string[]) => {
+              store.setPhotos(photos);
               navigation.navigate('Location');
             }}
             onBack={() => navigation.goBack()}
