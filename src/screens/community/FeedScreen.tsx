@@ -49,13 +49,15 @@ export default function FeedScreen() {
   useEffect(() => { loadFeed(); }, [loadFeed]);
 
   const handleLike = async (postId: string) => {
+    setPosts(prev => prev.map(p =>
+      p.id === postId ? { ...p, likes_count: p.likes_count + 1 } : p
+    ));
     try {
       await api.community.likePost({ postId });
+    } catch {
       setPosts(prev => prev.map(p =>
-        p.id === postId ? { ...p, likes_count: p.likes_count + 1 } : p
+        p.id === postId ? { ...p, likes_count: p.likes_count - 1 } : p
       ));
-    } catch (err: any) {
-      Alert.alert('Error', err.message);
     }
   };
 
@@ -147,76 +149,87 @@ export default function FeedScreen() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadFeed(); }} />
           }
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.userAvatar}>
-                  <Text style={styles.userAvatarText}>{item.title.charAt(0).toUpperCase()}</Text>
-                </View>
-                <View style={styles.cardHeaderInfo}>
-                  <Text style={styles.cardAuthor}>{ACTIVITY_LABELS[item.activity_type]}</Text>
-                  <Text style={styles.cardDate}>{new Date(item.created_at).toLocaleDateString('es-ES')}</Text>
-                </View>
-              </View>
+          renderItem={({ item }) => {
+            const createdAt = (item.created_at as any)?.seconds
+              ? new Date((item.created_at as any).seconds * 1000)
+              : new Date(item.created_at);
+            const dateStr = isNaN(createdAt.getTime())
+              ? ''
+              : createdAt.toLocaleDateString('es-ES');
 
-              <View style={styles.cardImagePlaceholder} />
-
-              <View style={styles.cardBody}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardDesc} numberOfLines={3}>{item.description}</Text>
-                {item.tags.length > 0 && (
-                  <View style={styles.tagsRow}>
-                    {item.tags.slice(0, 4).map(tag => (
-                      <Text key={tag} style={styles.tag}>#{tag}</Text>
-                    ))}
+            return (
+              <TouchableOpacity
+                style={styles.card}
+                onPress={() => navigation.navigate('PostDetail', { post: item })}
+                activeOpacity={0.95}
+              >
+                <View style={styles.cardHeader}>
+                  <View style={styles.userAvatar}>
+                    <Text style={styles.userAvatarText}>{item.title.charAt(0).toUpperCase()}</Text>
                   </View>
-                )}
-                <View style={styles.cardFooter}>
-                  <TouchableOpacity onPress={() => handleLike(item.id)}>
-                    <Text style={styles.footerAction}>&#x2665; {item.likes_count}</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.footerAction}>&#x1F4AC; {item.comments_count}</Text>
-                  <TouchableOpacity
-                    style={styles.reportBtn}
-                    onPress={() => {
-                      Alert.alert('Denunciar publicación', undefined, [
-                        {
-                          text: 'Contenido inapropiado',
-                          onPress: async () => {
-                            try {
-                              await api.reports.report({ contentType: 'post', contentId: item.id, reason: 'contenido_inapropiado' });
-                              Alert.alert('Gracias', 'Gracias por tu reporte. Lo revisaremos pronto.');
-                            } catch {}
-                          },
-                        },
-                        {
-                          text: 'Spam',
-                          onPress: async () => {
-                            try {
-                              await api.reports.report({ contentType: 'post', contentId: item.id, reason: 'spam' });
-                              Alert.alert('Gracias', 'Gracias por tu reporte. Lo revisaremos pronto.');
-                            } catch {}
-                          },
-                        },
-                        {
-                          text: 'Acoso',
-                          onPress: async () => {
-                            try {
-                              await api.reports.report({ contentType: 'post', contentId: item.id, reason: 'acoso' });
-                              Alert.alert('Gracias', 'Gracias por tu reporte. Lo revisaremos pronto.');
-                            } catch {}
-                          },
-                        },
-                        { text: 'Cancelar', style: 'cancel' },
-                      ]);
-                    }}
-                  >
-                    <Text style={styles.reportBtnText}>Denunciar</Text>
-                  </TouchableOpacity>
+                  <View style={styles.cardHeaderInfo}>
+                    <Text style={styles.cardAuthor}>{ACTIVITY_LABELS[item.activity_type]}</Text>
+                    <Text style={styles.cardDate}>{dateStr}</Text>
+                  </View>
                 </View>
-              </View>
-            </View>
-          )}
+
+                {item.images && item.images.length > 0 ? (
+                  <Image source={{ uri: item.images[0] }} style={styles.cardImage} />
+                ) : (
+                  <View style={styles.cardImagePlaceholder} />
+                )}
+
+                <View style={styles.cardBody}>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cardDesc} numberOfLines={3}>{item.description}</Text>
+                  {item.tags.length > 0 && (
+                    <View style={styles.tagsRow}>
+                      {item.tags.slice(0, 4).map(tag => (
+                        <Text key={tag} style={styles.tag}>#{tag}</Text>
+                      ))}
+                    </View>
+                  )}
+                  <View style={styles.cardFooter}>
+                    <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); handleLike(item.id); }}>
+                      <Text style={styles.footerAction}>&#x2665; {item.likes_count}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => navigation.navigate('PostDetail', { post: item })}>
+                      <Text style={styles.footerAction}>&#x1F4AC; {item.comments_count}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.reportBtn}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        Alert.alert('Denunciar publicación', undefined, [
+                          {
+                            text: 'Contenido inapropiado',
+                            onPress: async () => {
+                              try { await api.reports.report({ contentType: 'post', contentId: item.id, reason: 'contenido_inapropiado' }); Alert.alert('Gracias', 'Lo revisaremos pronto.'); } catch {}
+                            },
+                          },
+                          {
+                            text: 'Spam',
+                            onPress: async () => {
+                              try { await api.reports.report({ contentType: 'post', contentId: item.id, reason: 'spam' }); Alert.alert('Gracias', 'Lo revisaremos pronto.'); } catch {}
+                            },
+                          },
+                          {
+                            text: 'Acoso',
+                            onPress: async () => {
+                              try { await api.reports.report({ contentType: 'post', contentId: item.id, reason: 'acoso' }); Alert.alert('Gracias', 'Lo revisaremos pronto.'); } catch {}
+                            },
+                          },
+                          { text: 'Cancelar', style: 'cancel' },
+                        ]);
+                      }}
+                    >
+                      <Text style={styles.reportBtnText}>Denunciar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
         />
       </SafeAreaView>
 
@@ -355,6 +368,7 @@ const styles = StyleSheet.create({
   cardHeaderInfo: { flex: 1 },
   cardAuthor: { fontSize: 13, fontWeight: '600', color: '#1c1c1e' },
   cardDate: { fontSize: 11, color: '#8c8c8c' },
+  cardImage: { width: '100%', height: 192 },
   cardImagePlaceholder: {
     height: 192,
     backgroundColor: '#e5d7fc',

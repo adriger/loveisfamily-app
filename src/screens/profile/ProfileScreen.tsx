@@ -68,7 +68,7 @@ export default function ProfileScreen() {
       const response = await fetch(localUri);
       const blob = await response.blob();
       const storageRef = ref(storage, `profiles/${firebaseUser?.uid}/photo_${Date.now()}.jpg`);
-      await uploadBytes(storageRef, blob);
+      await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
       const url = await getDownloadURL(storageRef);
       setPhotos(prev => [...prev, url]);
     } catch {

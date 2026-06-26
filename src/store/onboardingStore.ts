@@ -48,7 +48,7 @@ async function uploadLocalPhoto(localUri: string, uid: string): Promise<string> 
   const response = await fetch(localUri);
   const blob = await response.blob();
   const storageRef = ref(storage, `profiles/${uid}/photo_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`);
-  await uploadBytes(storageRef, blob);
+  await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
   return getDownloadURL(storageRef);
 }
 
