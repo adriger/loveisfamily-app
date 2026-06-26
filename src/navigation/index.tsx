@@ -347,8 +347,13 @@ function ProfileSetupNavigator() {
           <BioScreen
             onNext={async (bio) => {
               store.setBio(bio);
-              await store.submit();
-              navigation.navigate('ProfileValidation');
+              try {
+                await store.submit();
+                navigation.navigate('ProfileValidation');
+              } catch (err: any) {
+                const { Alert } = require('react-native');
+                Alert.alert('Error', err?.message || 'No se pudo guardar el perfil. Inténtalo de nuevo.');
+              }
             }}
             onBack={() => navigation.goBack()}
           />
