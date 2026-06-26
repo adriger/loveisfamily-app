@@ -75,6 +75,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     // and should be uploaded to Firebase Storage before calling updateProfile.
     // For now we pass the local URI as-is until storage upload is implemented.
     await api.auth.updateProfile({
+      username,
       displayName: username,
       bio: bio || bioText,
       interests,

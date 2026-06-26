@@ -112,7 +112,12 @@ export default function HomeScreen({ navigation }: Props) {
     if (!current) return;
     // Fire and forget — no bloqueamos la animación esperando la red
     api.matching.createMatch({ targetUserId: current.user_id, matchType: 'instant' })
-      .catch(err => Alert.alert('Error', err?.message || 'No se pudo crear la conexión'));
+      .catch(err => {
+        // "already exists" no es un error real — el usuario ya conectó antes con esta familia
+        if (!err?.message?.toLowerCase().includes('already')) {
+          Alert.alert('Error', err?.message || 'No se pudo crear la conexión');
+        }
+      });
     showToast('💚 Conexión enviada');
     setCurrentIndex(prev => prev + 1);
   }, [suggestions, currentIndex, showToast]);
