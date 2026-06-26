@@ -26,6 +26,8 @@ export default function HomeScreen({ navigation }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [radiusKm, setRadiusKm] = useState(10);
   const [showMenu, setShowMenu] = useState(false);
+  const [toast, setToast] = useState('');
+  const toastOpacity = useRef(new Animated.Value(0)).current;
 
   // Animated values for swipe gesture
   const translateX = useRef(new Animated.Value(0)).current;
@@ -94,17 +96,26 @@ export default function HomeScreen({ navigation }: Props) {
     });
   }, [translateX, resetCard]);
 
-  const handleConnect = useCallback(async () => {
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    toastOpacity.setValue(1);
+    Animated.timing(toastOpacity, {
+      toValue: 0,
+      duration: 1800,
+      delay: 800,
+      useNativeDriver: true,
+    }).start();
+  }, [toastOpacity]);
+
+  const handleConnect = useCallback(() => {
     const current = suggestions[currentIndex];
     if (!current) return;
-    try {
-      await api.matching.createMatch({ targetUserId: current.user_id, matchType: 'instant' });
-      Alert.alert('Conexión enviada', 'Si la otra familia acepta, podréis chatear.');
-      setCurrentIndex(prev => prev + 1);
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'No se pudo crear la conexion');
-    }
-  }, [suggestions, currentIndex]);
+    // Fire and forget — no bloqueamos la animación esperando la red
+    api.matching.createMatch({ targetUserId: current.user_id, matchType: 'instant' })
+      .catch(err => Alert.alert('Error', err?.message || 'No se pudo crear la conexión'));
+    showToast('💚 Conexión enviada');
+    setCurrentIndex(prev => prev + 1);
+  }, [suggestions, currentIndex, showToast]);
 
   const handleSkip = useCallback(() => {
     setCurrentIndex(prev => prev + 1);
@@ -192,6 +203,7 @@ export default function HomeScreen({ navigation }: Props) {
   }
 
   const current = suggestions[currentIndex];
+  const next = suggestions[currentIndex + 1];
 
   return (
     <GradientBackground>
@@ -218,13 +230,27 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
         ) : (
           <View style={styles.cardArea}>
+            {/* Siguiente tarjeta visible detrás — elimina el flash al cambiar */}
+            {next && (
+              <Animated.View
+                style={[styles.card, styles.cardBehind, { transform: [{ scale: nextCardScale }] }]}
+                pointerEvents="none"
+              >
+                <View style={styles.cardImagePlaceholder}>
+                  {next.photoURL ? (
+                    <Image source={{ uri: next.photoURL }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  ) : null}
+                  <View style={styles.cardOverlay} />
+                  <View style={styles.cardBottom}>
+                    <Text style={styles.familyName}>{next.displayName}</Text>
+                  </View>
+                </View>
+              </Animated.View>
+            )}
+
+            {/* Tarjeta actual (encima, con swipe) */}
             <Animated.View
-              style={[
-                styles.card,
-                {
-                  transform: [{ translateX }, { rotate }],
-                },
-              ]}
+              style={[styles.card, { transform: [{ translateX }, { rotate }] }]}
               {...panResponder.panHandlers}
             >
               <View style={styles.cardImagePlaceholder}>
@@ -233,7 +259,6 @@ export default function HomeScreen({ navigation }: Props) {
                 ) : null}
                 <View style={styles.cardOverlay} />
 
-                {/* Connect overlay (swipe right) */}
                 <Animated.View
                   style={[styles.swipeOverlay, styles.swipeOverlayConnect, { opacity: connectOpacity }]}
                   pointerEvents="none"
@@ -241,7 +266,6 @@ export default function HomeScreen({ navigation }: Props) {
                   <Text style={styles.swipeOverlayText}>💚 CONECTAR</Text>
                 </Animated.View>
 
-                {/* Skip overlay (swipe left) */}
                 <Animated.View
                   style={[styles.swipeOverlay, styles.swipeOverlaySkip, { opacity: skipOpacity }]}
                   pointerEvents="none"
@@ -296,6 +320,13 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
         )}
       </SafeAreaView>
+
+      {/* Toast de conexión enviada */}
+      {toast !== '' && (
+        <Animated.View style={[styles.toast, { opacity: toastOpacity }]} pointerEvents="none">
+          <Text style={styles.toastText}>{toast}</Text>
+        </Animated.View>
+      )}
 
       {/* Menú de filtros */}
       <Modal visible={showMenu} transparent animationType="slide" onRequestClose={() => setShowMenu(false)}>
@@ -356,6 +387,20 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginTop: 8,
   },
+  cardBehind: {
+    position: 'absolute',
+    top: 8,
+  },
+  toast: {
+    position: 'absolute',
+    bottom: 110,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(28,28,30,0.85)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  toastText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
   cardImagePlaceholder: {
     flex: 1,
     backgroundColor: '#e5d7fc',
