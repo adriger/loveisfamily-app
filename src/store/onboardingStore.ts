@@ -45,8 +45,14 @@ interface OnboardingState {
 }
 
 async function uploadLocalPhoto(localUri: string, uid: string): Promise<string> {
-  const response = await fetch(localUri);
-  const blob = await response.blob();
+  const blob: Blob = await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.onload = () => resolve(xhr.response);
+    xhr.onerror = () => reject(new Error('Network request failed'));
+    xhr.responseType = 'blob';
+    xhr.open('GET', localUri, true);
+    xhr.send(null);
+  });
   const storageRef = ref(storage, `profiles/${uid}/photo_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`);
   await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
   return getDownloadURL(storageRef);
@@ -74,14 +80,6 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     const { username, birthdate, photos, location, composition, interests, bio, consent } = get();
     const uid = useAuthStore.getState().firebaseUser?.uid;
 
-    const bioText = [
-      composition.household,
-      composition.childrenAges?.join(', '),
-      composition.pets?.join(', '),
-    ]
-      .filter(Boolean)
-      .join(' · ');
-
     // Upload any local file:// URIs to Firebase Storage
     const uploadedPhotos: string[] = [];
     for (const uri of photos) {
@@ -95,7 +93,8 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     await api.auth.updateProfile({
       username,
       displayName: username,
-      bio: bio || bioText,
+      bio,
+      composition,
       interests,
       photoURL: uploadedPhotos[0] || undefined,
       photos: uploadedPhotos,

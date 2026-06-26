@@ -10,6 +10,12 @@ export interface UserLocation {
   city?: string;
 }
 
+export interface UserComposition {
+  household?: string;
+  childrenAges?: string[];
+  pets?: string[];
+}
+
 export interface User {
   id: string;
   email: string;
@@ -18,6 +24,7 @@ export interface User {
   photoURL: string | null;
   photos: string[];
   bio: string;
+  composition?: UserComposition;
   age: number | null;
   gender: string | null;
   interests: string[];
@@ -37,6 +44,7 @@ export interface UpdateProfilePayload {
   location?: UserLocation;
   photoURL?: string;
   photos?: string[];
+  composition?: UserComposition;
 }
 
 // ── Match ─────────────────────────────────────────────────────────────────────

@@ -82,8 +82,15 @@ export default function PostDetailScreen({ post, onBack }: Props) {
     }
   };
 
+  function parseDate(ts: any): Date {
+    if (!ts) return new Date();
+    if (ts._seconds != null) return new Date(ts._seconds * 1000);
+    if (ts.seconds != null) return new Date(ts.seconds * 1000);
+    return new Date(ts);
+  }
+
   const icon = ACTIVITY_ICONS[post.activity_type] ?? '💬';
-  const dateStr = new Date(post.created_at).toLocaleDateString('es-ES', {
+  const dateStr = parseDate(post.created_at).toLocaleDateString('es-ES', {
     day: 'numeric', month: 'long', year: 'numeric',
   });
 
@@ -97,7 +104,7 @@ export default function PostDetailScreen({ post, onBack }: Props) {
       <View style={styles.commentBubble}>
         <Text style={styles.commentText}>{item.text}</Text>
         <Text style={styles.commentTime}>
-          {new Date(item.timestamp).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+          {parseDate(item.timestamp).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
         </Text>
       </View>
     </View>
