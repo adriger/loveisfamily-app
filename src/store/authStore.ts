@@ -115,7 +115,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (snap.exists()) {
       const profile = snap.data() as User;
       const profileComplete =
-        Boolean(profile.username) && Array.isArray(profile.interests) && profile.interests.length > 0;
+        (Boolean(profile.username) || Boolean(profile.displayName)) &&
+        Array.isArray(profile.interests) && profile.interests.length > 0;
       set({ profile, profileComplete });
     }
   },

@@ -258,15 +258,39 @@ function ProfileSetupNavigator() {
       </ProfileSetupStack.Screen>
 
       <ProfileSetupStack.Screen name="Privacy">
-        {({ navigation }) => (
-          <PrivacyScreen
-            onNext={(consent) => {
-              store.setConsent({ ...consent, acceptedAt: new Date().toISOString() });
-              navigation.navigate('Username');
-            }}
-            onBack={() => navigation.goBack()}
-          />
-        )}
+        {({ navigation }) => {
+          const { firebaseUser, signOut } = useAuthStore();
+          const handleRejectTerms = async () => {
+            // El usuario rechaza los términos → eliminar cuenta y volver a Auth
+            const { Alert } = require('react-native');
+            Alert.alert(
+              'Rechazar términos',
+              'Si no aceptas los términos no podemos crear tu cuenta. ¿Deseas cancelar el registro?',
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                  text: 'Sí, eliminar mi cuenta',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      if (firebaseUser) await firebaseUser.delete();
+                    } catch { /* ya eliminado o no existe */ }
+                    await signOut();
+                  },
+                },
+              ],
+            );
+          };
+          return (
+            <PrivacyScreen
+              onNext={(consent) => {
+                store.setConsent({ ...consent, acceptedAt: new Date().toISOString() });
+                navigation.navigate('Username');
+              }}
+              onBack={handleRejectTerms}
+            />
+          );
+        }}
       </ProfileSetupStack.Screen>
 
       <ProfileSetupStack.Screen name="Username">
