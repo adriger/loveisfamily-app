@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import GradientBackground from '../../components/GradientBackground';
 import Button from '../../components/Button';
@@ -65,7 +66,12 @@ export default function ProfileScreen() {
     const slotIndex = photos.length;
     setUploadingIndex(slotIndex);
     try {
-      const response = await fetch(localUri);
+      const resized = await ImageManipulator.manipulateAsync(
+        localUri,
+        [{ resize: { width: 800 } }],
+        { compress: 0.78, format: ImageManipulator.SaveFormat.JPEG },
+      );
+      const response = await fetch(resized.uri);
       const blob = await response.blob();
       const storageRef = ref(storage, `profiles/${firebaseUser?.uid}/photo_${Date.now()}.jpg`);
       await uploadBytes(storageRef, blob);

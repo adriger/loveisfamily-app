@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { api } from '../api/client';
 import { storage } from '../config/firebase';
 import { useAuthStore } from './authStore';
@@ -45,7 +46,12 @@ interface OnboardingState {
 }
 
 async function uploadLocalPhoto(localUri: string, uid: string): Promise<string> {
-  const response = await fetch(localUri);
+  const resized = await ImageManipulator.manipulateAsync(
+    localUri,
+    [{ resize: { width: 800 } }],
+    { compress: 0.78, format: ImageManipulator.SaveFormat.JPEG },
+  );
+  const response = await fetch(resized.uri);
   const blob = await response.blob();
   const storageRef = ref(storage, `profiles/${uid}/photo_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`);
   await uploadBytes(storageRef, blob);
