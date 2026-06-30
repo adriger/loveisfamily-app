@@ -86,6 +86,8 @@ export interface Conversation {
   unread_count_p2: number;
   is_archived: boolean;
   created_at: string;
+  muted_by?: string[];
+  hidden_for?: string[];
 }
 
 export interface Message {

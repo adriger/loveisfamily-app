@@ -13,6 +13,7 @@ interface Reservation {
   id: string;
   service_name: string;
   requested_date: string;
+  requested_time?: string | null;
   status: ReservationStatus;
   confirmed_datetime?: string | null;
   cancel_reason?: string | null;
@@ -104,7 +105,7 @@ export default function MyReservationsScreen({ onBack }: Props) {
                         </Text>
                       </View>
                     </View>
-                    <Text style={styles.dateText}>📅 {item.requested_date}</Text>
+                    <Text style={styles.dateText}>📅 {item.requested_date}{item.requested_time ? ` · ${item.requested_time}h` : ''}</Text>
                     {item.status === 'confirmed' && item.confirmed_datetime ? (
                       <Text style={styles.confirmedText}>
                         Confirmada para el {formatSpanish(item.confirmed_datetime)}

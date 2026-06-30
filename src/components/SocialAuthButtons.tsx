@@ -23,11 +23,15 @@ export default function SocialAuthButtons({ onSuccess }: Props) {
   const [loadingProvider, setLoadingProvider] = useState<'google' | 'apple' | null>(null);
 
   // ── Google ──────────────────────────────────────────────────────────────────
+  const REVERSED_CLIENT_ID = 'com.googleusercontent.apps.747947455235-ca73hdm43hfc4h9seln48qo4vpndbhg2';
+
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: GOOGLE_CLIENT_ID,
       scopes: ['openid', 'profile', 'email'],
-      redirectUri: AuthSession.makeRedirectUri({ scheme: 'loveisfamily' }),
+      redirectUri: `${REVERSED_CLIENT_ID}:/`,
+      responseType: AuthSession.ResponseType.IdToken,
+      extraParams: { nonce: 'lif-nonce' },
     },
     { authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth' },
   );

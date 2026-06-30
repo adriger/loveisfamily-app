@@ -19,12 +19,14 @@ interface Service {
   name: string;
   category: string;
   description: string;
-  city: string;
-  schedule: string;
-  rating: number;
-  tags: string[];
-  icon: string;
-  featured: boolean;
+  city?: string;
+  location?: { city?: string; latitude?: number; longitude?: number };
+  schedule?: string;
+  rating?: number;
+  tags?: string[];
+  icon?: string;
+  featured?: boolean;
+  price?: number;
 }
 
 const CATEGORIES = ['Todos', 'Salud', 'Legal', 'Educación', 'Ocio', 'Bienestar'];
@@ -80,7 +82,7 @@ export default function ExploreScreen() {
     const matchSearch =
       search.trim() === '' ||
       s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()));
+      (s.tags ?? []).some((t) => t.toLowerCase().includes(search.toLowerCase()));
     const matchTab = activeTab === 'todos' || savedIds.has(s.id);
     return matchSearch && matchTab;
   });
@@ -89,11 +91,11 @@ export default function ExploreScreen() {
     <TouchableOpacity style={styles.card} onPress={() => setSelectedService(item)} activeOpacity={0.85}>
       <View style={styles.cardHeader}>
         <View style={styles.cardIconWrap}>
-          <Text style={styles.cardIcon}>{item.icon}</Text>
+          <Text style={styles.cardIcon}>{item.icon ?? '🏢'}</Text>
         </View>
         <View style={styles.cardInfo}>
           <Text style={styles.cardName}>{item.name}</Text>
-          <Text style={styles.cardLocation}>📍 {item.city}</Text>
+          <Text style={styles.cardLocation}>📍 {item.city ?? item.location?.city ?? ''}</Text>
         </View>
         <TouchableOpacity onPress={() => toggleSaved(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={{ fontSize: 20 }}>{savedIds.has(item.id) ? '🔖' : '🏷️'}</Text>
@@ -102,13 +104,15 @@ export default function ExploreScreen() {
       <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
       <View style={styles.cardFooter}>
         <View style={styles.tagsRow}>
-          {item.tags.map((tag) => (
+          {(item.tags ?? []).map((tag) => (
             <View key={tag} style={styles.tag}><Text style={styles.tagText}>{tag}</Text></View>
           ))}
         </View>
-        <View style={styles.ratingPill}>
-          <Text style={styles.ratingText}>⭐ {item.rating}</Text>
-        </View>
+        {item.rating != null && (
+          <View style={styles.ratingPill}>
+            <Text style={styles.ratingText}>⭐ {item.rating}</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -196,25 +200,27 @@ export default function ExploreScreen() {
             {selectedService && !showReservation && (
               <>
                 <View style={styles.detailHeader}>
-                  <Text style={styles.detailIcon}>{selectedService.icon}</Text>
+                  <Text style={styles.detailIcon}>{selectedService.icon ?? '🏢'}</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.detailName}>{selectedService.name}</Text>
-                    <Text style={styles.detailLocation}>📍 {selectedService.city}</Text>
+                    <Text style={styles.detailLocation}>📍 {selectedService.city ?? selectedService.location?.city ?? ''}</Text>
                   </View>
-                  <View style={styles.ratingPill}>
-                    <Text style={styles.ratingText}>⭐ {selectedService.rating}</Text>
-                  </View>
+                  {selectedService.rating != null && (
+                    <View style={styles.ratingPill}>
+                      <Text style={styles.ratingText}>⭐ {selectedService.rating}</Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={styles.detailCategory}>{selectedService.category}</Text>
                 <Text style={styles.detailDesc}>{selectedService.description}</Text>
                 <View style={[styles.tagsRow, { marginVertical: 16 }]}>
-                  {selectedService.tags.map((tag) => (
+                  {(selectedService.tags ?? []).map((tag) => (
                     <View key={tag} style={styles.tag}><Text style={styles.tagText}>{tag}</Text></View>
                   ))}
                 </View>
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>ℹ️  Información</Text>
-                  <Text style={styles.detailSectionText}>{selectedService.schedule}</Text>
+                  <Text style={styles.detailSectionText}>{selectedService.schedule ?? ''}</Text>
                   <Text style={styles.detailSectionText}>Cita previa requerida</Text>
                 </View>
                 <TouchableOpacity style={styles.reserveBtn} onPress={() => setShowReservation(true)}>
@@ -246,10 +252,14 @@ function ReservationForm({ service, onSubmit, onBack }: { service: Service; onSu
   const [dd, setDd] = useState('');
   const [mm, setMm] = useState('');
   const [yyyy, setYyyy] = useState('');
+  const [hh, setHh] = useState('');
+  const [min, setMin] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const mmRef = useRef<TextInput>(null);
   const yyyyRef = useRef<TextInput>(null);
+  const hhRef = useRef<TextInput>(null);
+  const minRef = useRef<TextInput>(null);
 
   const handleDd = (t: string) => {
     const v = t.replace(/[^0-9]/g, '').slice(0, 2);
@@ -261,10 +271,21 @@ function ReservationForm({ service, onSubmit, onBack }: { service: Service; onSu
     setMm(v);
     if (v.length === 2) yyyyRef.current?.focus();
   };
-  const handleYyyy = (t: string) => setYyyy(t.replace(/[^0-9]/g, '').slice(0, 4));
+  const handleYyyy = (t: string) => {
+    const v = t.replace(/[^0-9]/g, '').slice(0, 4);
+    setYyyy(v);
+    if (v.length === 4) hhRef.current?.focus();
+  };
+  const handleHh = (t: string) => {
+    const v = t.replace(/[^0-9]/g, '').slice(0, 2);
+    setHh(v);
+    if (v.length === 2) minRef.current?.focus();
+  };
+  const handleMin = (t: string) => setMin(t.replace(/[^0-9]/g, '').slice(0, 2));
 
   const dateValid = dd.length === 2 && mm.length === 2 && yyyy.length === 4;
-  const canSubmit = name.trim() && phone.trim() && dateValid;
+  const timeValid = hh.length === 2 && min.length === 2;
+  const canSubmit = name.trim() && phone.trim() && dateValid && timeValid;
 
   const handleConfirm = async () => {
     if (submitting) return;
@@ -275,6 +296,7 @@ function ReservationForm({ service, onSubmit, onBack }: { service: Service; onSu
         userName: name,
         userPhone: phone,
         requestedDate: `${dd}/${mm}/${yyyy}`,
+        requestedTime: `${hh}:${min}`,
         notes,
       });
       onSubmit();
@@ -312,7 +334,7 @@ function ReservationForm({ service, onSubmit, onBack }: { service: Service; onSu
         </View>
 
         <View style={styles.formField}>
-          <Text style={styles.formLabel}>Fecha preferida</Text>
+          <Text style={styles.formLabel}>Fecha y hora preferida</Text>
           <View style={styles.dateRow}>
             <TextInput style={[styles.formInput, styles.dateSegment]} value={dd}
               onChangeText={handleDd} placeholder="DD" placeholderTextColor="#c0c0c0"
@@ -325,6 +347,14 @@ function ReservationForm({ service, onSubmit, onBack }: { service: Service; onSu
             <TextInput ref={yyyyRef} style={[styles.formInput, styles.dateSegmentYear]} value={yyyy}
               onChangeText={handleYyyy} placeholder="AAAA" placeholderTextColor="#c0c0c0"
               keyboardType="number-pad" maxLength={4} textAlign="center" />
+            <Text style={styles.dateSep}> · </Text>
+            <TextInput ref={hhRef} style={[styles.formInput, styles.dateSegment]} value={hh}
+              onChangeText={handleHh} placeholder="HH" placeholderTextColor="#c0c0c0"
+              keyboardType="number-pad" maxLength={2} textAlign="center" />
+            <Text style={styles.dateSep}>:</Text>
+            <TextInput ref={minRef} style={[styles.formInput, styles.dateSegment]} value={min}
+              onChangeText={handleMin} placeholder="MM" placeholderTextColor="#c0c0c0"
+              keyboardType="number-pad" maxLength={2} textAlign="center" />
           </View>
         </View>
 

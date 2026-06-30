@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+import { navigationRef } from './NavigationService';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
@@ -26,6 +27,7 @@ import WelcomeScreen from '../screens/onboarding/WelcomeScreen';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import FamilyProfileScreen from '../screens/home/FamilyProfileScreen';
+import MatchesScreen from '../screens/matches/MatchesScreen';
 import ExploreScreen from '../screens/explore/ExploreScreen';
 import MyReservationsScreen from '../screens/explore/MyReservationsScreen';
 import ChatListScreen from '../screens/chat/ChatListScreen';
@@ -46,7 +48,8 @@ export type AuthStackParams = {
 
 export type HomeStackParams = {
   HomeMain: undefined;
-  FamilyProfile: { userId: string; displayName: string; compatibilityScore?: number };
+  FamilyProfile: { userId: string; displayName: string; compatibilityScore?: number; photoURL?: string };
+  Matches: undefined;
 };
 
 export type MainTabParams = {
@@ -66,7 +69,8 @@ export type CommunityStackParams = {
 
 export type ChatStackParams = {
   ChatList: undefined;
-  Chat: { conversationId: string; participantName: string };
+  Chat: { conversationId: string; participantId: string; participantName: string; participantPhotoURL?: string };
+  ChatFamilyProfile: { userId: string; displayName: string; photoURL?: string };
 };
 
 export type ExploreStackParams = {
@@ -110,6 +114,7 @@ function HomeNavigator() {
     <HomeStack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       <HomeStack.Screen name="HomeMain" component={HomeScreen} />
       <HomeStack.Screen name="FamilyProfile" component={FamilyProfileScreen} />
+      <HomeStack.Screen name="Matches" component={MatchesScreen} />
     </HomeStack.Navigator>
   );
 }
@@ -129,9 +134,17 @@ function ExploreNavigator() {
 
 function ChatNavigator() {
   return (
-    <ChatStack.Navigator screenOptions={{ headerShown: false }}>
+    <ChatStack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       <ChatStack.Screen name="ChatList" component={ChatListScreen} />
       <ChatStack.Screen name="Chat" component={ChatScreen} />
+      <ChatStack.Screen name="ChatFamilyProfile">
+        {({ route, navigation }) => (
+          <FamilyProfileScreen
+            route={{ ...route, params: { userId: route.params.userId, displayName: route.params.displayName, photoURL: route.params.photoURL } } as any}
+            navigation={navigation as any}
+          />
+        )}
+      </ChatStack.Screen>
     </ChatStack.Navigator>
   );
 }
@@ -425,7 +438,7 @@ export default function Navigation() {
   if (!isInitialized || onboardingSeen === null) return null;
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <DeepLinkHandler />
       <RootStack.Navigator
         screenOptions={{

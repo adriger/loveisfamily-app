@@ -1,20 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   TextInput, Alert, Image, ActivityIndicator, Linking,
-  ActionSheetIOS, Platform, Modal, Pressable, FlatList,
+  ActionSheetIOS, Platform, Modal, Pressable, FlatList, Switch,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import GradientBackground from '../../components/GradientBackground';
 import Button from '../../components/Button';
 import { useAuthStore } from '../../store/authStore';
+import { useLoadingStore } from '../../store/loadingStore';
 import { api } from '../../api/client';
 import { storage } from '../../config/firebase';
-import type { UserComposition } from '../../config/types';
+import type { User, UserComposition } from '../../config/types';
 
 const TIER_LABELS = { free: 'Gratuito', premium: 'Premium', vip: 'VIP' };
+
+// Parses the old bio format "Dos padres · 3-5 años · Gato" into a composition object
+function parseLegacyBio(bio: string): UserComposition | null {
+  if (!bio.includes(' · ')) return null;
+  const parts = bio.split(' · ').map(s => s.trim());
+  const HOUSEHOLD_VALUES = ['Dos madres', 'Dos padres', 'Monoparental', 'Familia reconstituida', 'Otras configuraciones'];
+  if (!HOUSEHOLD_VALUES.includes(parts[0])) return null;
+  const childrenAges = parts[1] ? parts[1].split(', ').filter(Boolean) : undefined;
+  const pets = parts[2] ? parts[2].split(', ').filter(Boolean) : undefined;
+  return { household: parts[0], childrenAges, pets };
+}
 const MAX_PHOTOS = 5;
 const HOUSEHOLD_OPTIONS = ['Dos madres', 'Dos padres', 'Monoparental', 'Familia reconstituida', 'Otras configuraciones'];
 const AGE_RANGE_OPTIONS = ['0-2 años', '3-5 años', '6-9 años', '10-12 años', '13+ años'];
@@ -25,7 +38,7 @@ const ALL_INTERESTS = [
   'Juegos de mesa', 'Voluntariado', 'Teatro', 'Tecnología',
 ];
 
-function initialPhotos(profile: ReturnType<typeof useAuthStore>['profile']): string[] {
+function initialPhotos(profile: User | null): string[] {
   if (profile?.photos && profile.photos.length > 0) return profile.photos;
   if (profile?.photoURL) return [profile.photoURL];
   return [];
@@ -47,20 +60,43 @@ async function uploadPhotoXHR(localUri: string, uid: string): Promise<string> {
 
 export default function ProfileScreen() {
   const { profile, firebaseUser, signOut, refreshProfile } = useAuthStore();
+  const { show: showLoading, hide: hideLoading } = useLoadingStore();
   const [editing, setEditing] = useState(false);
+  const [photoViewerVisible, setPhotoViewerVisible] = useState(false);
+  const [savingPhoto, setSavingPhoto] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
-  const [bio, setBio] = useState(profile?.bio || '');
   const [interests, setInterests] = useState<string[]>(profile?.interests || []);
   const [photos, setPhotos] = useState<string[]>(() => initialPhotos(profile));
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
-  const [composition, setComposition] = useState<UserComposition>({
-    household: profile?.composition?.household,
-    childrenAges: profile?.composition?.childrenAges,
-    pets: profile?.composition?.pets,
-  });
+
+  // Detect legacy format: bio contained composition data concatenated as a string
+  const hasComposition = !!(profile?.composition?.household);
+  const legacyParsed = !hasComposition && profile?.bio ? parseLegacyBio(profile.bio) : null;
+  const [bio, setBio] = useState(!legacyParsed ? (profile?.bio || '') : '');
+  const [composition, setComposition] = useState<UserComposition>(
+    hasComposition
+      ? { household: profile?.composition?.household, childrenAges: profile?.composition?.childrenAges, pets: profile?.composition?.pets }
+      : (legacyParsed ?? {})
+  );
   const [activeSheet, setActiveSheet] = useState<'household' | 'childAge' | 'pet' | null>(null);
+  const [notifConnections, setNotifConnections] = useState(true);
+  const [notifMessages, setNotifMessages] = useState(true);
+  const [notifMatches, setNotifMatches] = useState(true);
+  const [aboutVisible, setAboutVisible] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.multiGet(['notif_connections', 'notif_messages', 'notif_matches']).then(pairs => {
+      pairs.forEach(([key, val]) => {
+        if (val === null) return;
+        if (key === 'notif_connections') setNotifConnections(val === 'true');
+        if (key === 'notif_messages') setNotifMessages(val === 'true');
+        if (key === 'notif_matches') setNotifMatches(val === 'true');
+      });
+    });
+  }, []);
 
   const handleSave = async () => {
+    showLoading();
     try {
       await api.auth.updateProfile({
         displayName,
@@ -74,20 +110,58 @@ export default function ProfileScreen() {
       setEditing(false);
     } catch (err: any) {
       Alert.alert('Error', err.message);
+    } finally {
+      hideLoading();
+    }
+  };
+
+  const handleChangeMainPhoto = async () => {
+    if (!firebaseUser?.uid) return;
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Acceso bloqueado', 'Permite el acceso a fotos en Ajustes.', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Ajustes', onPress: () => Linking.openSettings() },
+      ]);
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    setSavingPhoto(true);
+    showLoading();
+    try {
+      const url = await uploadPhotoXHR(result.assets[0].uri, firebaseUser.uid);
+      const newPhotos = [url, ...photos.filter(p => p !== photos[0])];
+      await api.auth.updateProfile({ photos: newPhotos, photoURL: url });
+      await refreshProfile();
+      setPhotos(newPhotos);
+      setPhotoViewerVisible(false);
+    } catch {
+      Alert.alert('Error', 'No se pudo actualizar la foto. Inténtalo de nuevo.');
+    } finally {
+      setSavingPhoto(false);
+      hideLoading();
     }
   };
 
   const handleCancelEdit = () => {
     setEditing(false);
     setDisplayName(profile?.displayName || '');
-    setBio(profile?.bio || '');
     setInterests(profile?.interests || []);
     setPhotos(initialPhotos(profile));
-    setComposition({
-      household: profile?.composition?.household,
-      childrenAges: profile?.composition?.childrenAges,
-      pets: profile?.composition?.pets,
-    });
+    const hasSavedComposition = !!(profile?.composition?.household);
+    const legacyBio = !hasSavedComposition && profile?.bio ? parseLegacyBio(profile.bio) : null;
+    setBio(!legacyBio ? (profile?.bio || '') : '');
+    setComposition(
+      hasSavedComposition
+        ? { household: profile?.composition?.household, childrenAges: profile?.composition?.childrenAges, pets: profile?.composition?.pets }
+        : (legacyBio ?? {})
+    );
   };
 
   const pickPhoto = async (source: 'library' | 'camera') => {
@@ -157,6 +231,48 @@ export default function ProfileScreen() {
   const toggleInterest = (interest: string) =>
     setInterests(prev => prev.includes(interest) ? prev.filter(i => i !== interest) : [...prev, interest]);
 
+  const toggleNotif = async (key: string, value: boolean) => {
+    await AsyncStorage.setItem(key, String(value));
+    if (key === 'notif_connections') setNotifConnections(value);
+    if (key === 'notif_messages') setNotifMessages(value);
+    if (key === 'notif_matches') setNotifMatches(value);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Eliminar cuenta',
+      'Perderás todo tu perfil, fotos, reservas, conversaciones y conexiones. Los mensajes en chats existentes quedarán anonimizados. Esta acción es irreversible.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Continuar',
+          style: 'destructive',
+          onPress: () => Alert.alert(
+            '¿Estás completamente seguro?',
+            'Tu cuenta será eliminada de forma permanente e inmediata.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              {
+                text: 'Sí, eliminar mi cuenta',
+                style: 'destructive',
+                onPress: async () => {
+                  showLoading();
+                  try {
+                    await api.auth.deleteAccount({});
+                    await signOut();
+                  } catch (err: any) {
+                    hideLoading();
+                    Alert.alert('Error', err.message || 'No se pudo eliminar la cuenta.');
+                  }
+                },
+              },
+            ],
+          ),
+        },
+      ],
+    );
+  };
+
   const handleSignOut = () =>
     Alert.alert('Cerrar sesión', '¿Estás seguro?', [
       { text: 'Cancelar', style: 'cancel' },
@@ -179,12 +295,19 @@ export default function ProfileScreen() {
           {/* Header */}
           <View style={styles.profileCard}>
             <View style={styles.avatarWrap}>
-              <View style={styles.avatar}>
-                {mainPhoto
-                  ? <Image source={{ uri: mainPhoto }} style={styles.avatarImage} />
-                  : <Text style={styles.avatarText}>{profile?.displayName?.charAt(0).toUpperCase() || '?'}</Text>
-                }
-              </View>
+              <TouchableOpacity onPress={() => mainPhoto && !editing && setPhotoViewerVisible(true)} activeOpacity={mainPhoto && !editing ? 0.8 : 1}>
+                <View style={styles.avatar}>
+                  {mainPhoto
+                    ? <Image source={{ uri: mainPhoto }} style={styles.avatarImage} />
+                    : <Text style={styles.avatarText}>{profile?.displayName?.charAt(0).toUpperCase() || '?'}</Text>
+                  }
+                </View>
+                {!editing && mainPhoto && (
+                  <View style={styles.avatarEditHint}>
+                    <Text style={styles.avatarEditHintText}>ver</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
             <Text style={styles.name}>{profile?.displayName}</Text>
             {(profile?.location?.city || profile?.age) && (
@@ -337,6 +460,51 @@ export default function ProfileScreen() {
             )}
           </View>
 
+          {/* Ajustes */}
+          {!editing && (
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>Ajustes</Text>
+
+              <Text style={styles.settingGroupLabel}>Notificaciones</Text>
+              {([
+                { label: 'Nuevas conexiones', key: 'notif_connections', value: notifConnections },
+                { label: 'Mensajes nuevos', key: 'notif_messages', value: notifMessages },
+                { label: 'Matches mutuos', key: 'notif_matches', value: notifMatches },
+              ] as const).map(({ label, key, value }) => (
+                <View key={key} style={styles.settingRow}>
+                  <Text style={styles.settingLabel}>{label}</Text>
+                  <Switch
+                    value={value}
+                    onValueChange={(v) => toggleNotif(key, v)}
+                    trackColor={{ false: '#e5e5e5', true: '#c6a7f8' }}
+                    thumbColor="#fff"
+                    ios_backgroundColor="#e5e5e5"
+                  />
+                </View>
+              ))}
+
+              <Text style={[styles.settingGroupLabel, { marginTop: 16 }]}>Legal</Text>
+              <TouchableOpacity style={styles.settingRow} onPress={() => Linking.openURL('https://loveisfamily.es/terminos')}>
+                <Text style={styles.settingLabel}>Términos y condiciones</Text>
+                <Text style={styles.settingChevron}>›</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.settingRow} onPress={() => Linking.openURL('https://loveisfamily.es/privacidad')}>
+                <Text style={styles.settingLabel}>Política de privacidad</Text>
+                <Text style={styles.settingChevron}>›</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.settingRow} onPress={() => setAboutVisible(true)}>
+                <Text style={styles.settingLabel}>Acerca de LoveIsFamily</Text>
+                <Text style={styles.settingChevron}>›</Text>
+              </TouchableOpacity>
+
+              <View style={styles.settingDivider} />
+              <TouchableOpacity style={styles.settingRow} onPress={handleDeleteAccount}>
+                <Text style={[styles.settingLabel, { color: '#ff3b30' }]}>Eliminar cuenta</Text>
+                <Text style={[styles.settingChevron, { color: '#ff3b30' }]}>›</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Acciones */}
           <View style={styles.bottomActions}>
             {editing ? (
@@ -350,9 +518,54 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
               <Text style={styles.signOutText}>Cerrar sesión</Text>
             </TouchableOpacity>
+            <Text style={styles.versionText}>LoveIsFamily v1.0.0 (11)</Text>
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      {/* Visor de foto */}
+      <Modal visible={photoViewerVisible} transparent animationType="fade" statusBarTranslucent>
+        <View style={styles.viewerOverlay}>
+          <TouchableOpacity style={styles.viewerClose} onPress={() => setPhotoViewerVisible(false)}>
+            <Text style={styles.viewerCloseText}>✕</Text>
+          </TouchableOpacity>
+          {mainPhoto && (
+            <Image source={{ uri: mainPhoto }} style={styles.viewerImage} resizeMode="contain" />
+          )}
+          <TouchableOpacity style={[styles.viewerEditBtn, savingPhoto && { opacity: 0.5 }]} onPress={savingPhoto ? undefined : handleChangeMainPhoto} activeOpacity={0.85}>
+            <Text style={styles.viewerEditBtnText}>Cambiar foto</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* About modal */}
+      <Modal visible={aboutVisible} transparent animationType="slide">
+        <Pressable style={styles.modalOverlay} onPress={() => setAboutVisible(false)}>
+          <Pressable style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Acerca de LoveIsFamily</Text>
+            <Text style={styles.aboutVersion}>Versión 1.0.0 (11)</Text>
+            <Text style={styles.aboutDesc}>
+              Una app para familias diversas LGBTI+ que buscan conectar con otras familias afines.
+            </Text>
+            <Text style={[styles.settingGroupLabel, { marginTop: 16, marginBottom: 8 }]}>Tecnologías utilizadas</Text>
+            {[
+              'React Native · Expo SDK 56',
+              'Firebase (Auth, Firestore, Storage, Functions)',
+              'Zustand — gestión de estado',
+              'React Navigation 7',
+              'expo-notifications',
+              'expo-image-picker',
+              'react-native-safe-area-context',
+            ].map(lib => (
+              <Text key={lib} style={styles.aboutLib}>· {lib}</Text>
+            ))}
+            <TouchableOpacity style={styles.sheetConfirmBtn} onPress={() => setAboutVisible(false)}>
+              <Text style={styles.sheetConfirmText}>Cerrar</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Sheet hogar */}
       <Modal visible={activeSheet === 'household'} transparent animationType="slide">
@@ -475,6 +688,34 @@ const styles = StyleSheet.create({
   secondaryBtn: { marginTop: 0 },
   signOutBtn: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 24 },
   signOutText: { color: '#8c8c8c', fontSize: 14, fontWeight: '500' },
+  avatarEditHint: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(0,0,0,0.38)', borderBottomLeftRadius: 40, borderBottomRightRadius: 40,
+    paddingVertical: 4, alignItems: 'center',
+  },
+  avatarEditHintText: { fontSize: 10, color: '#fff', fontWeight: '600' },
+  viewerOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  viewerClose: {
+    position: 'absolute', top: 56, right: 20,
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  viewerCloseText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  viewerImage: {
+    width: '100%',
+    height: '70%',
+  },
+  viewerEditBtn: {
+    position: 'absolute', bottom: 56,
+    backgroundColor: '#c6a7f8',
+    paddingHorizontal: 32, paddingVertical: 14,
+    borderRadius: 16,
+  },
+  viewerEditBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 40, maxHeight: '75%' },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#ede4fd', alignSelf: 'center', marginBottom: 20 },
@@ -487,4 +728,13 @@ const styles = StyleSheet.create({
   checkmark: { fontSize: 16, color: '#c6a7f8' },
   sheetConfirmBtn: { marginTop: 12, backgroundColor: '#c6a7f8', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   sheetConfirmText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  settingGroupLabel: { fontSize: 11, fontWeight: '700', color: '#8c8c8c', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#f2f2f2' },
+  settingLabel: { fontSize: 15, color: '#1c1c1e' },
+  settingChevron: { fontSize: 20, color: '#c0c0c0' },
+  settingDivider: { height: 1, backgroundColor: '#f0ecfa', marginVertical: 8 },
+  versionText: { fontSize: 12, color: '#c0c0c0', textAlign: 'center', marginTop: 4 },
+  aboutVersion: { fontSize: 13, color: '#8c8c8c', marginBottom: 8 },
+  aboutDesc: { fontSize: 14, color: '#262626', lineHeight: 20, marginBottom: 4 },
+  aboutLib: { fontSize: 13, color: '#8c8c8c', paddingVertical: 3 },
 });

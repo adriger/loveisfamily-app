@@ -216,6 +216,9 @@ export default function HomeScreen({ navigation }: Props) {
         <View style={styles.toolbar}>
           <Text style={styles.logo}>LIF&#x2665;</Text>
           <View style={styles.toolbarRight}>
+            <TouchableOpacity style={styles.connectionsBtn} onPress={() => navigation.navigate('Matches')}>
+              <Text style={styles.connectionsBtnText}>Conexiones</Text>
+            </TouchableOpacity>
             <Text style={styles.radiusLabel}>{radiusKm} km</Text>
             <TouchableOpacity style={styles.filterBtn} onPress={() => setShowMenu(true)}>
               <Text style={styles.filterIcon}>&#x2261;</Text>
@@ -311,6 +314,7 @@ export default function HomeScreen({ navigation }: Props) {
                   userId: current.user_id,
                   displayName: current.displayName,
                   compatibilityScore: current.compatibility_score,
+                  photoURL: current.photoURL ?? undefined,
                 })}
               >
                 <Text style={styles.actionIconDark}>&#x2139;</Text>
@@ -494,6 +498,8 @@ const styles = StyleSheet.create({
   emptyBtn: { width: '100%' },
   toolbarRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   radiusLabel: { fontSize: 13, color: '#8c8c8c', fontWeight: '500' },
+  connectionsBtn: { backgroundColor: '#ede4fd', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  connectionsBtnText: { fontSize: 12, color: '#7c4dbc', fontWeight: '600' },
   menuOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.35)',

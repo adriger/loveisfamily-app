@@ -18,15 +18,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.loveisfamily",
-      "buildNumber": "9",
+      "buildNumber": "14",
       "usesAppleSignIn": true,
       "googleServicesFile": "./GoogleService-Info.plist",
       "deploymentTarget": "16.4",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "LoveIsFamily necesita acceso a tu cámara para añadir fotos a tu perfil y publicaciones.",
-        "NSPhotoLibraryUsageDescription": "LoveIsFamily necesita acceso a tus fotos para añadir imágenes a tu perfil y publicaciones.",
-        "NSPhotoLibraryAddUsageDescription": "LoveIsFamily guarda fotos de perfil en tu galería.",
+        "NSCameraUsageDescription": "LoveIsFamily necesita acceso a tu c\u00e1mara para a\u00f1adir fotos a tu perfil y publicaciones.",
+        "NSPhotoLibraryUsageDescription": "LoveIsFamily necesita acceso a tus fotos para a\u00f1adir im\u00e1genes a tu perfil y publicaciones.",
+        "NSPhotoLibraryAddUsageDescription": "LoveIsFamily guarda fotos de perfil en tu galer\u00eda.",
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
@@ -34,7 +34,8 @@
             ]
           }
         ]
-      }
+      },
+      "appleTeamId": "2CQJJ9VJW7"
     },
     "android": {
       "package": "com.loveisfamily",

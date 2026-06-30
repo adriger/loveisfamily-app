@@ -181,6 +181,7 @@ export const api = {
       userName: string;
       userPhone: string;
       requestedDate: string;
+      requestedTime?: string;
       notes?: string;
     }, { reservationId: string }>('createReservation'),
 
