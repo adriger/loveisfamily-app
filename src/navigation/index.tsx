@@ -9,6 +9,7 @@ import { useAuthStore } from '../store/authStore';
 import { useOnboardingStore } from '../store/onboardingStore';
 import { useUnreadCount } from '../hooks/useUnreadCount';
 import { useDeepLinks } from '../hooks/useDeepLinks';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 import SignInScreen from '../screens/auth/SignInScreen';
 import SignUpScreen from '../screens/auth/SignUpScreen';
@@ -428,12 +429,19 @@ function DeepLinkHandler() {
 export default function Navigation() {
   const { firebaseUser, isInitialized, profileComplete } = useAuthStore();
   const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
+  const { registerToken } = usePushNotifications();
 
   useEffect(() => {
     AsyncStorage.getItem('onboarding_seen').then(val => {
       setOnboardingSeen(val === 'true');
     });
   }, []);
+
+  useEffect(() => {
+    if (firebaseUser && profileComplete) {
+      registerToken();
+    }
+  }, [firebaseUser?.uid, profileComplete]);
 
   if (!isInitialized || onboardingSeen === null) return null;
 
