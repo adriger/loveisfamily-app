@@ -194,53 +194,59 @@ export default function ExploreScreen() {
       </SafeAreaView>
 
       <Modal visible={!!selectedService} transparent animationType="slide">
-        <Pressable style={styles.modalOverlay} onPress={() => { setSelectedService(null); setShowReservation(false); }}>
-          <Pressable style={styles.detailSheet} onPress={() => {}}>
-            <View style={styles.sheetHandle} />
-            {selectedService && !showReservation && (
-              <>
-                <View style={styles.detailHeader}>
-                  <Text style={styles.detailIcon}>{selectedService.icon ?? '🏢'}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.detailName}>{selectedService.name}</Text>
-                    <Text style={styles.detailLocation}>📍 {selectedService.city ?? selectedService.location?.city ?? ''}</Text>
-                  </View>
-                  {selectedService.rating != null && (
-                    <View style={styles.ratingPill}>
-                      <Text style={styles.ratingText}>⭐ {selectedService.rating}</Text>
+        <View style={{ flex: 1 }}>
+          <Pressable
+            style={styles.modalOverlayDismiss}
+            onPress={() => { setSelectedService(null); setShowReservation(false); }}
+          />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <Pressable style={styles.detailSheet} onPress={() => {}}>
+              <View style={styles.sheetHandle} />
+              {selectedService && !showReservation && (
+                <>
+                  <View style={styles.detailHeader}>
+                    <Text style={styles.detailIcon}>{selectedService.icon ?? '🏢'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.detailName}>{selectedService.name}</Text>
+                      <Text style={styles.detailLocation}>📍 {selectedService.city ?? selectedService.location?.city ?? ''}</Text>
                     </View>
-                  )}
-                </View>
-                <Text style={styles.detailCategory}>{selectedService.category}</Text>
-                <Text style={styles.detailDesc}>{selectedService.description}</Text>
-                <View style={[styles.tagsRow, { marginVertical: 16 }]}>
-                  {(selectedService.tags ?? []).map((tag) => (
-                    <View key={tag} style={styles.tag}><Text style={styles.tagText}>{tag}</Text></View>
-                  ))}
-                </View>
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailSectionTitle}>ℹ️  Información</Text>
-                  <Text style={styles.detailSectionText}>{selectedService.schedule ?? ''}</Text>
-                  <Text style={styles.detailSectionText}>Cita previa requerida</Text>
-                </View>
-                <TouchableOpacity style={styles.reserveBtn} onPress={() => setShowReservation(true)}>
-                  <Text style={styles.reserveBtnText}>Reservar cita</Text>
-                </TouchableOpacity>
-                <Text style={styles.contactNote}>
-                  Tras la reserva nos pondremos en contacto contigo para confirmar disponibilidad.
-                </Text>
-              </>
-            )}
+                    {selectedService.rating != null && (
+                      <View style={styles.ratingPill}>
+                        <Text style={styles.ratingText}>⭐ {selectedService.rating}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.detailCategory}>{selectedService.category}</Text>
+                  <Text style={styles.detailDesc}>{selectedService.description}</Text>
+                  <View style={[styles.tagsRow, { marginVertical: 16 }]}>
+                    {(selectedService.tags ?? []).map((tag) => (
+                      <View key={tag} style={styles.tag}><Text style={styles.tagText}>{tag}</Text></View>
+                    ))}
+                  </View>
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailSectionTitle}>ℹ️  Información</Text>
+                    <Text style={styles.detailSectionText}>{selectedService.schedule ?? ''}</Text>
+                    <Text style={styles.detailSectionText}>Cita previa requerida</Text>
+                  </View>
+                  <TouchableOpacity style={styles.reserveBtn} onPress={() => setShowReservation(true)}>
+                    <Text style={styles.reserveBtnText}>Reservar cita</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.contactNote}>
+                    Tras la reserva nos pondremos en contacto contigo para confirmar disponibilidad.
+                  </Text>
+                </>
+              )}
 
-            {selectedService && showReservation && (
-              <ReservationForm
-                service={selectedService}
-                onSubmit={() => { setShowReservation(false); setSelectedService(null); }}
-                onBack={() => setShowReservation(false)}
-              />
-            )}
-          </Pressable>
-        </Pressable>
+              {selectedService && showReservation && (
+                <ReservationForm
+                  service={selectedService}
+                  onSubmit={() => { setShowReservation(false); setSelectedService(null); }}
+                  onBack={() => setShowReservation(false)}
+                />
+              )}
+            </Pressable>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
     </GradientBackground>
   );
@@ -256,10 +262,13 @@ function ReservationForm({ service, onSubmit, onBack }: { service: Service; onSu
   const [min, setMin] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const phoneRef = useRef<TextInput>(null);
+  const ddRef = useRef<TextInput>(null);
   const mmRef = useRef<TextInput>(null);
   const yyyyRef = useRef<TextInput>(null);
   const hhRef = useRef<TextInput>(null);
   const minRef = useRef<TextInput>(null);
+  const notesRef = useRef<TextInput>(null);
 
   const handleDd = (t: string) => {
     const v = t.replace(/[^0-9]/g, '').slice(0, 2);
@@ -310,73 +319,75 @@ function ReservationForm({ service, onSubmit, onBack }: { service: Service; onSu
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <TouchableOpacity onPress={onBack} style={{ marginBottom: 16 }}>
-          <Text style={{ color: '#c6a7f8', fontSize: 15, fontWeight: '500' }}>‹ Volver</Text>
-        </TouchableOpacity>
-        <Text style={styles.detailName}>Reservar en {service.name}</Text>
-        <Text style={{ color: '#8c8c8c', fontSize: 13, marginBottom: 20 }}>
-          Completa tus datos y nos pondremos en contacto contigo.
-        </Text>
+    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <TouchableOpacity onPress={onBack} style={{ marginBottom: 16 }}>
+        <Text style={{ color: '#c6a7f8', fontSize: 15, fontWeight: '500' }}>‹ Volver</Text>
+      </TouchableOpacity>
+      <Text style={styles.detailName}>Reservar en {service.name}</Text>
+      <Text style={{ color: '#8c8c8c', fontSize: 13, marginBottom: 20 }}>
+        Completa tus datos y nos pondremos en contacto contigo.
+      </Text>
 
-        <View style={styles.formField}>
-          <Text style={styles.formLabel}>Nombre completo</Text>
-          <TextInput style={styles.formInput} value={name} onChangeText={setName}
-            placeholder="Tu nombre" placeholderTextColor="#c0c0c0" returnKeyType="next" />
+      <View style={styles.formField}>
+        <Text style={styles.formLabel}>Nombre completo</Text>
+        <TextInput style={styles.formInput} value={name} onChangeText={setName}
+          placeholder="Tu nombre" placeholderTextColor="#c0c0c0"
+          returnKeyType="next" onSubmitEditing={() => phoneRef.current?.focus()} blurOnSubmit={false} />
+      </View>
+
+      <View style={styles.formField}>
+        <Text style={styles.formLabel}>Teléfono de contacto</Text>
+        <TextInput ref={phoneRef} style={styles.formInput} value={phone} onChangeText={setPhone}
+          placeholder="+34 600 000 000" placeholderTextColor="#c0c0c0"
+          keyboardType="phone-pad" returnKeyType="next"
+          onSubmitEditing={() => ddRef.current?.focus()} blurOnSubmit={false} />
+      </View>
+
+      <View style={styles.formField}>
+        <Text style={styles.formLabel}>Fecha y hora preferida</Text>
+        <View style={styles.dateRow}>
+          <TextInput ref={ddRef} style={[styles.formInput, styles.dateSegment]} value={dd}
+            onChangeText={handleDd} placeholder="DD" placeholderTextColor="#c0c0c0"
+            keyboardType="number-pad" maxLength={2} textAlign="center" />
+          <Text style={styles.dateSep}>/</Text>
+          <TextInput ref={mmRef} style={[styles.formInput, styles.dateSegment]} value={mm}
+            onChangeText={handleMm} placeholder="MM" placeholderTextColor="#c0c0c0"
+            keyboardType="number-pad" maxLength={2} textAlign="center" />
+          <Text style={styles.dateSep}>/</Text>
+          <TextInput ref={yyyyRef} style={[styles.formInput, styles.dateSegmentYear]} value={yyyy}
+            onChangeText={handleYyyy} placeholder="AAAA" placeholderTextColor="#c0c0c0"
+            keyboardType="number-pad" maxLength={4} textAlign="center" />
+          <Text style={styles.dateSep}> · </Text>
+          <TextInput ref={hhRef} style={[styles.formInput, styles.dateSegment]} value={hh}
+            onChangeText={handleHh} placeholder="HH" placeholderTextColor="#c0c0c0"
+            keyboardType="number-pad" maxLength={2} textAlign="center" />
+          <Text style={styles.dateSep}>:</Text>
+          <TextInput ref={minRef} style={[styles.formInput, styles.dateSegment]} value={min}
+            onChangeText={handleMin} placeholder="MM" placeholderTextColor="#c0c0c0"
+            keyboardType="number-pad" maxLength={2}
+            onSubmitEditing={() => notesRef.current?.focus()} blurOnSubmit={false}
+            textAlign="center" />
         </View>
+      </View>
 
-        <View style={styles.formField}>
-          <Text style={styles.formLabel}>Teléfono de contacto</Text>
-          <TextInput style={styles.formInput} value={phone} onChangeText={setPhone}
-            placeholder="+34 600 000 000" placeholderTextColor="#c0c0c0"
-            keyboardType="phone-pad" returnKeyType="next" />
-        </View>
+      <View style={styles.formField}>
+        <Text style={styles.formLabel}>Notas adicionales</Text>
+        <TextInput ref={notesRef} style={[styles.formInput, { height: 72 }]} value={notes}
+          onChangeText={setNotes} placeholder="Opcional" placeholderTextColor="#c0c0c0"
+          multiline returnKeyType="done" />
+      </View>
 
-        <View style={styles.formField}>
-          <Text style={styles.formLabel}>Fecha y hora preferida</Text>
-          <View style={styles.dateRow}>
-            <TextInput style={[styles.formInput, styles.dateSegment]} value={dd}
-              onChangeText={handleDd} placeholder="DD" placeholderTextColor="#c0c0c0"
-              keyboardType="number-pad" maxLength={2} textAlign="center" />
-            <Text style={styles.dateSep}>/</Text>
-            <TextInput ref={mmRef} style={[styles.formInput, styles.dateSegment]} value={mm}
-              onChangeText={handleMm} placeholder="MM" placeholderTextColor="#c0c0c0"
-              keyboardType="number-pad" maxLength={2} textAlign="center" />
-            <Text style={styles.dateSep}>/</Text>
-            <TextInput ref={yyyyRef} style={[styles.formInput, styles.dateSegmentYear]} value={yyyy}
-              onChangeText={handleYyyy} placeholder="AAAA" placeholderTextColor="#c0c0c0"
-              keyboardType="number-pad" maxLength={4} textAlign="center" />
-            <Text style={styles.dateSep}> · </Text>
-            <TextInput ref={hhRef} style={[styles.formInput, styles.dateSegment]} value={hh}
-              onChangeText={handleHh} placeholder="HH" placeholderTextColor="#c0c0c0"
-              keyboardType="number-pad" maxLength={2} textAlign="center" />
-            <Text style={styles.dateSep}>:</Text>
-            <TextInput ref={minRef} style={[styles.formInput, styles.dateSegment]} value={min}
-              onChangeText={handleMin} placeholder="MM" placeholderTextColor="#c0c0c0"
-              keyboardType="number-pad" maxLength={2} textAlign="center" />
-          </View>
-        </View>
-
-        <View style={styles.formField}>
-          <Text style={styles.formLabel}>Notas adicionales</Text>
-          <TextInput style={[styles.formInput, { height: 72 }]} value={notes}
-            onChangeText={setNotes} placeholder="Opcional" placeholderTextColor="#c0c0c0"
-            multiline />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.reserveBtn, { opacity: canSubmit && !submitting ? 1 : 0.5 }]}
-          onPress={canSubmit && !submitting ? handleConfirm : undefined}
-        >
-          {submitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.reserveBtnText}>Confirmar reserva</Text>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <TouchableOpacity
+        style={[styles.reserveBtn, { opacity: canSubmit && !submitting ? 1 : 0.5 }]}
+        onPress={canSubmit && !submitting ? handleConfirm : undefined}
+      >
+        {submitting ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.reserveBtnText}>Confirmar reserva</Text>
+        )}
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
@@ -442,6 +453,7 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, fontWeight: '600', color: '#1c1c1e', marginBottom: 6 },
   emptySubtext: { fontSize: 13, color: '#8c8c8c' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalOverlayDismiss: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   detailSheet: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 28,
