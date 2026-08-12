@@ -53,7 +53,7 @@ export default function SignInScreen({ navigation }: Props) {
             <Text style={styles.logo}>LIF&#x2665;</Text>
 
             {/* Heading */}
-            <Text style={styles.title}>Iniciar sesión</Text>
+            <Text style={styles.title}>Inicia sesión</Text>
             <Text style={styles.subtitle}>Bienvenido de nuevo. Nos alegra verte.</Text>
 
             {/* Inputs */}
