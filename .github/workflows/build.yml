@@ -39,3 +39,9 @@ jobs:
 
       - name: Build nativo
         run: eas build --platform ${{ github.event.inputs.platform }} --non-interactive --profile production
+
+      - name: Subir a TestFlight
+        if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'ios' }}
+        run: eas submit --platform ios --latest --non-interactive
+        env:
+          EXPO_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.EXPO_APPLE_APP_SPECIFIC_PASSWORD }}
