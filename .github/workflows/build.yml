@@ -20,6 +20,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -31,6 +33,23 @@ jobs:
 
       - name: Escribir GoogleService-Info.plist en el runner
         run: echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" | base64 --decode > GoogleService-Info.plist
+
+      - name: Incrementar build number automáticamente
+        run: |
+          BUILD=$(node -e "const a=require('./app.json'); console.log(Number(a.expo.ios.buildNumber)+1)")
+          VERSION_CODE=$(node -e "const a=require('./app.json'); console.log(a.expo.android.versionCode+1)")
+          node -e "
+            const fs=require('fs');
+            const a=JSON.parse(fs.readFileSync('app.json','utf8'));
+            a.expo.ios.buildNumber=String($BUILD);
+            a.expo.android.versionCode=$VERSION_CODE;
+            fs.writeFileSync('app.json',JSON.stringify(a,null,2));
+          "
+          git config user.email "ci@loveisfamily.app"
+          git config user.name "LoveIsFamily CI"
+          git add app.json
+          git commit -m "bump: build $BUILD (auto)"
+          git push
 
       - uses: expo/expo-github-action@v8
         with:
