@@ -40,8 +40,7 @@ yarn-error.*
 /ios
 /android
 
-# Firebase config files (contain API keys)
-GoogleService-Info*.plist
+# Firebase config files (Android only — iOS plist debe estar en git para EAS Build)
 google-services*.json
 
 # Claude Code agent skills cache
