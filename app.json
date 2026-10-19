@@ -21,7 +21,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.loveisfamily",
-      "buildNumber": "25",
+      "buildNumber": "26",
       "usesAppleSignIn": true,
       "googleServicesFile": "./GoogleService-Info.plist",
       "deploymentTarget": "16.4",
@@ -42,7 +42,7 @@
     },
     "android": {
       "package": "com.loveisfamily",
-      "versionCode": 7,
+      "versionCode": 8,
       "predictiveBackGestureEnabled": false,
       "intentFilters": [
         {
