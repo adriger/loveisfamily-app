@@ -11,7 +11,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Aislar si el bucle for es el problema
+      - name: Replica con seq/variables pero sin curl ni node -e
         env:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
@@ -32,13 +32,19 @@ jobs:
           const signature = crypto.sign(null, Buffer.from(unsigned), { key: keyObject, dsaEncoding: 'ieee-p1363' });
           console.log(unsigned + '.' + base64url(signature));
           JWTEOF
-          echo "ANTES_DEL_BUCLE"
-          for i in 1 2 3; do
-            echo "iter $i inicio"
+
+          ASC_APP_ID="6773713987"
+          GROUP_NAME="ext"
+
+          echo "Esperando a que el build termine de procesar en App Store Connect..."
+          BUILD_ID=""
+          for i in $(seq 1 60); do
             set +e
             JWT=$(node /tmp/gen_jwt.js 2>/tmp/node_err.txt)
             JWT_CODE=$?
             set -e
-            echo "iter $i code=$JWT_CODE"
+            echo "[$i/60] code=$JWT_CODE app=$ASC_APP_ID group=$GROUP_NAME"
+            BUILD_ID="fake"
+            break
           done
-          echo "DESPUES_DEL_BUCLE"
+          echo "FIN build_id=$BUILD_ID"
