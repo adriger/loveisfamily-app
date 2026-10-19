@@ -17,6 +17,8 @@ jobs:
   build:
     name: EAS Build — ${{ github.event.inputs.platform }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
