@@ -1,86 +1,95 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, Animated, StyleSheet } from 'react-native';
-import { theme } from '../../config/theme';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Image, Animated, Dimensions } from 'react-native';
+
+const splashImages = [
+  require('../../../assets/splash/splash-1.png'),
+  require('../../../assets/splash/splash-2.png'),
+  require('../../../assets/splash/splash-3.png'),
+  require('../../../assets/splash/splash-4.png'),
+  require('../../../assets/splash/splash-5.png'),
+  require('../../../assets/splash/splash-6.png'),
+  require('../../../assets/splash/splash-7.png'),
+  require('../../../assets/splash/splash-8.png'),
+  require('../../../assets/splash/splash-9.png'),
+  require('../../../assets/splash/splash-final.png'),
+];
 
 interface Props {
   onFinish: () => void;
 }
 
 export default function SplashScreen({ onFinish }: Props) {
-  const scale = useRef(new Animated.Value(0.4)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const { width, height } = Dimensions.get('window');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const opacityAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        tension: 60,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    let isMounted = true;
+    let timeouts: NodeJS.Timeout[] = [];
 
-    const timer = setTimeout(onFinish, 2000);
-    return () => clearTimeout(timer);
-  }, []);
+    const animateToNextImage = () => {
+      if (!isMounted) return;
+
+      // Fade out current image
+      Animated.timing(opacityAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        if (!isMounted) return;
+
+        // Move to next image
+        setCurrentImageIndex((prev) => {
+          const nextIndex = (prev + 1) % splashImages.length;
+          
+          // Fade in next image
+          Animated.timing(opacityAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }).start();
+
+          // Check if we're at the final image
+          if (nextIndex === splashImages.length - 1) {
+            // Wait 2 seconds on final image, then finish
+            const finalTimeout = setTimeout(() => {
+              if (isMounted) {
+                onFinish();
+              }
+            }, 2000);
+            timeouts.push(finalTimeout);
+          } else {
+            // Move to next image after 500ms
+            const nextTimeout = setTimeout(animateToNextImage, 500);
+            timeouts.push(nextTimeout);
+          }
+
+          return nextIndex;
+        });
+      });
+    };
+
+    // Start animation after 500ms
+    const startTimeout = setTimeout(animateToNextImage, 500);
+    timeouts.push(startTimeout);
+
+    return () => {
+      isMounted = false;
+      timeouts.forEach((timeout) => clearTimeout(timeout));
+    };
+  }, [opacityAnim, onFinish]);
 
   return (
-    <View style={styles.container}>
-      <Animated.View style={[styles.logoWrapper, { transform: [{ scale }], opacity }]}>
-        {/* Outer ring — echoes the app's pill / circle motif */}
-        <View style={styles.logoRing}>
-          <Text style={styles.logoText}>LIF</Text>
-          <Text style={styles.logoHeart}>♥</Text>
-        </View>
-        <Text style={styles.wordmark}>LoveIsFamily</Text>
-      </Animated.View>
+    <View style={{ width, height, overflow: 'hidden' }}>
+      <Animated.Image
+        source={splashImages[currentImageIndex]}
+        style={{
+          width,
+          height,
+          opacity: opacityAnim,
+        }}
+        resizeMode="cover"
+      />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.splashLavender,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoWrapper: {
-    alignItems: 'center',
-  },
-  logoRing: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: theme.colors.logoFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  logoText: {
-    fontFamily: theme.fonts.fallback,
-    fontSize: 36,
-    fontWeight: '700',
-    color: theme.colors.logoFill,
-    letterSpacing: 2,
-    lineHeight: 40,
-  },
-  logoHeart: {
-    fontSize: 18,
-    color: theme.colors.logoFill,
-    marginTop: -4,
-  },
-  wordmark: {
-    fontFamily: theme.fonts.fallback,
-    fontSize: 22,
-    fontWeight: '600',
-    color: theme.colors.logoFill,
-    letterSpacing: 1,
-  },
-});
