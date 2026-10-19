@@ -11,52 +11,72 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Diagnóstico (sin imprimir la key)
+      - name: Asignar último build al grupo externo
         env:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
         run: |
-          node --version
-          cat > /tmp/diag.js << 'JWTEOF'
+          cat > /tmp/gen_jwt.js << 'JWTEOF'
           const crypto = require('crypto');
-
           function base64url(input) {
             return Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
           }
-
           const keyId = process.env.ASC_API_KEY_ID;
           const issuerId = process.env.ASC_API_ISSUER_ID;
-          const privateKeyPem = process.env.ASC_API_KEY_P8;
-
-          console.log('keyId length:', keyId ? keyId.length : 'undefined');
-          console.log('issuerId length:', issuerId ? issuerId.length : 'undefined');
-          console.log('p8 env length (chars):', privateKeyPem ? privateKeyPem.length : 'undefined');
-          console.log('p8 starts with BEGIN marker:', privateKeyPem ? privateKeyPem.trimStart().startsWith('-----BEGIN') : false);
-          console.log('p8 line count:', privateKeyPem ? privateKeyPem.split('\n').length : 0);
-
-          let keyObject;
-          try {
-            keyObject = crypto.createPrivateKey(privateKeyPem);
-            console.log('PARSE_OK type=' + keyObject.asymmetricKeyType);
-          } catch (e) {
-            console.log('PARSE_ERROR: ' + e.message);
-            process.exit(0);
-          }
-
-          try {
-            const header = { alg: 'ES256', kid: keyId, typ: 'JWT' };
-            const now = Math.floor(Date.now() / 1000);
-            const payload = { iss: issuerId, iat: now, exp: now + 1190, aud: 'appstoreconnect-v1' };
-            const unsigned = base64url(JSON.stringify(header)) + '.' + base64url(JSON.stringify(payload));
-            const signature = crypto.sign(null, Buffer.from(unsigned), { key: keyObject, dsaEncoding: 'ieee-p1363' });
-            console.log('SIGN_OK length=' + signature.length);
-          } catch (e) {
-            console.log('SIGN_ERROR: ' + e.message);
-            process.exit(0);
-          }
-
-          console.log('ALL_OK');
+          const keyObject = crypto.createPrivateKey(process.env.ASC_API_KEY_P8);
+          const header = { alg: 'ES256', kid: keyId, typ: 'JWT' };
+          const now = Math.floor(Date.now() / 1000);
+          const payload = { iss: issuerId, iat: now, exp: now + 1190, aud: 'appstoreconnect-v1' };
+          const unsigned = base64url(JSON.stringify(header)) + '.' + base64url(JSON.stringify(payload));
+          const signature = crypto.sign(null, Buffer.from(unsigned), { key: keyObject, dsaEncoding: 'ieee-p1363' });
+          console.log(unsigned + '.' + base64url(signature));
           JWTEOF
-          node /tmp/diag.js
-          echo "node exit=$?"
+
+          ASC_APP_ID="6773713987"
+          GROUP_NAME="ext"
+
+          echo "Esperando a que el build termine de procesar en App Store Connect..."
+          BUILD_ID=""
+          for i in $(seq 1 60); do
+            JWT=$(node /tmp/gen_jwt.js)
+            RESP=$(curl -s -H "Authorization: Bearer $JWT" "https://api.appstoreconnect.apple.com/v1/builds?filter[app]=$ASC_APP_ID&sort=-uploadedDate&limit=1")
+            STATE=$(echo "$RESP" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);console.log(j.data&&j.data[0]?j.data[0].attributes.processingState:'NONE')}catch(e){console.log('PARSE_ERROR: '+e.message)}})")
+            ID=$(echo "$RESP" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);console.log(j.data&&j.data[0]?j.data[0].id:'')}catch(e){console.log('')}})")
+            VER=$(echo "$RESP" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);console.log(j.data&&j.data[0]?j.data[0].attributes.version:'')}catch(e){console.log('')}})")
+            echo "[$i/60] build=$VER processingState=$STATE"
+            if [ "$STATE" = "VALID" ]; then
+              BUILD_ID="$ID"
+              break
+            fi
+            sleep 20
+          done
+
+          if [ -z "$BUILD_ID" ]; then
+            echo "::error::El build no terminó de procesar a tiempo"
+            exit 1
+          fi
+
+          JWT=$(node /tmp/gen_jwt.js)
+          GROUP_RESP=$(curl -s -H "Authorization: Bearer $JWT" "https://api.appstoreconnect.apple.com/v1/apps/$ASC_APP_ID/betaGroups?filter[name]=$GROUP_NAME")
+          GROUP_ID=$(echo "$GROUP_RESP" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);console.log(j.data&&j.data[0]?j.data[0].id:'')}catch(e){console.log('')}})")
+          echo "Grupos encontrados: $(echo "$GROUP_RESP" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);console.log(JSON.stringify((j.data||[]).map(g=>g.attributes.name)))}catch(e){console.log('[]')}})")"
+
+          if [ -z "$GROUP_ID" ]; then
+            echo "::error::No se encontró el grupo '$GROUP_NAME'"
+            exit 1
+          fi
+
+          echo "Asignando build $BUILD_ID al grupo $GROUP_NAME ($GROUP_ID)..."
+          JWT=$(node /tmp/gen_jwt.js)
+          HTTP_CODE=$(curl -s -o /tmp/asc_resp.json -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \
+            "https://api.appstoreconnect.apple.com/v1/betaGroups/$GROUP_ID/relationships/builds" \
+            -d "{\"data\":[{\"type\":\"builds\",\"id\":\"$BUILD_ID\"}]}")
+
+          echo "HTTP $HTTP_CODE"
+          cat /tmp/asc_resp.json
+          if [ "$HTTP_CODE" != "204" ]; then
+            exit 1
+          fi
+          echo "Build asignado correctamente."
