@@ -1,0 +1,62 @@
+name: Debug ASC API (temporal)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Diagnóstico (sin imprimir la key)
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          node --version
+          cat > /tmp/diag.js << 'JWTEOF'
+          const crypto = require('crypto');
+
+          function base64url(input) {
+            return Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+          }
+
+          const keyId = process.env.ASC_API_KEY_ID;
+          const issuerId = process.env.ASC_API_ISSUER_ID;
+          const privateKeyPem = process.env.ASC_API_KEY_P8;
+
+          console.log('keyId length:', keyId ? keyId.length : 'undefined');
+          console.log('issuerId length:', issuerId ? issuerId.length : 'undefined');
+          console.log('p8 env length (chars):', privateKeyPem ? privateKeyPem.length : 'undefined');
+          console.log('p8 starts with BEGIN marker:', privateKeyPem ? privateKeyPem.trimStart().startsWith('-----BEGIN') : false);
+          console.log('p8 line count:', privateKeyPem ? privateKeyPem.split('\n').length : 0);
+
+          let keyObject;
+          try {
+            keyObject = crypto.createPrivateKey(privateKeyPem);
+            console.log('PARSE_OK type=' + keyObject.asymmetricKeyType);
+          } catch (e) {
+            console.log('PARSE_ERROR: ' + e.message);
+            process.exit(0);
+          }
+
+          try {
+            const header = { alg: 'ES256', kid: keyId, typ: 'JWT' };
+            const now = Math.floor(Date.now() / 1000);
+            const payload = { iss: issuerId, iat: now, exp: now + 1190, aud: 'appstoreconnect-v1' };
+            const unsigned = base64url(JSON.stringify(header)) + '.' + base64url(JSON.stringify(payload));
+            const signature = crypto.sign(null, Buffer.from(unsigned), { key: keyObject, dsaEncoding: 'ieee-p1363' });
+            console.log('SIGN_OK length=' + signature.length);
+          } catch (e) {
+            console.log('SIGN_ERROR: ' + e.message);
+            process.exit(0);
+          }
+
+          console.log('ALL_OK');
+          JWTEOF
+          node /tmp/diag.js
+          echo "node exit=$?"
