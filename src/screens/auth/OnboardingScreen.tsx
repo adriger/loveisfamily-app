@@ -7,33 +7,62 @@ import {
   Dimensions,
   FlatList,
   Animated,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../config/theme';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 interface Slide {
   id: string;
-  heading: string;
-  body: string;
+  image: any;
+  heading?: string;
+  body?: string;
 }
 
 const slides: Slide[] = [
   {
     id: '1',
+    image: require('../../../assets/onboarding/splash-1.png'),
     heading: 'Encuentra familias con quienes compartir',
     body: 'Conecta con familias cerca de ti que disfrutan las mismas actividades.',
   },
   {
     id: '2',
+    image: require('../../../assets/onboarding/splash-2.png'),
     heading: 'Del chat al parque, a la mesa, a la vida.',
     body: 'Chatea, organiza planes y construye amistades reales.',
   },
   {
     id: '3',
+    image: require('../../../assets/onboarding/splash-3.png'),
     heading: 'Un espacio seguro para tu familia',
     body: 'Tú decides con quién conectar y qué compartir. Siempre en control.',
+  },
+  {
+    id: '4',
+    image: require('../../../assets/onboarding/splash-4.png'),
+  },
+  {
+    id: '5',
+    image: require('../../../assets/onboarding/splash-5.png'),
+  },
+  {
+    id: '6',
+    image: require('../../../assets/onboarding/splash-6.png'),
+  },
+  {
+    id: '7',
+    image: require('../../../assets/onboarding/splash-7.png'),
+  },
+  {
+    id: '8',
+    image: require('../../../assets/onboarding/splash-8.png'),
+  },
+  {
+    id: '9',
+    image: require('../../../assets/onboarding/splash-9.png'),
   },
 ];
 
@@ -130,11 +159,21 @@ export default function OnboardingScreen({ onFinish }: Props) {
   };
 
   const isLastSlide = activeIndex === slides.length - 1;
+  const currentSlide = slides[activeIndex];
 
   return (
     <View style={styles.root}>
-      <View style={styles.background} />
-      <View style={styles.overlay} />
+      {/* Background Image */}
+      <Image
+        source={currentSlide.image}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
+
+      {/* Overlay for text readability if needed */}
+      {currentSlide.heading && (
+        <View style={styles.overlay} />
+      )}
 
       <FlatList
         ref={listRef}
@@ -154,50 +193,91 @@ export default function OnboardingScreen({ onFinish }: Props) {
         </TouchableOpacity>
       </SafeAreaView>
 
-      <SafeAreaView edges={['bottom']} style={styles.bottomArea} pointerEvents="box-none">
-        <Animated.View
-          style={[
-            styles.textContent,
-            { opacity: textOpacity, transform: [{ translateX: textTranslateX }] },
-          ]}
-        >
-          <Text style={styles.heading}>{slides[activeIndex].heading}</Text>
-          <Text style={styles.bodyText}>{slides[activeIndex].body}</Text>
-        </Animated.View>
-
-        <View style={styles.controlRow}>
-          <View style={styles.dots}>
-            {slides.map((_, i) => (
-              <Animated.View
-                key={i}
-                style={[
-                  styles.dot,
-                  {
-                    width: dotWidths[i],
-                    opacity: dotOpacities[i],
-                  },
-                ]}
-              />
-            ))}
-          </View>
-
-          <Animated.View style={{ transform: [{ scale: arrowScale }] }}>
-            <TouchableOpacity
-              style={isLastSlide ? styles.startButton : styles.arrowButton}
-              onPress={handleNext}
-              onPressIn={handleArrowPressIn}
-              onPressOut={handleArrowPressOut}
-              activeOpacity={1}
-            >
-              {isLastSlide ? (
-                <Text style={styles.startText}>Empezar</Text>
-              ) : (
-                <Text style={styles.arrowText}>→</Text>
-              )}
-            </TouchableOpacity>
+      {/* Only show text content if slide has heading/body */}
+      {currentSlide.heading && (
+        <SafeAreaView edges={['bottom']} style={styles.bottomArea} pointerEvents="box-none">
+          <Animated.View
+            style={[
+              styles.textContent,
+              { opacity: textOpacity, transform: [{ translateX: textTranslateX }] },
+            ]}
+          >
+            <Text style={styles.heading}>{currentSlide.heading}</Text>
+            <Text style={styles.bodyText}>{currentSlide.body}</Text>
           </Animated.View>
-        </View>
-      </SafeAreaView>
+
+          <View style={styles.controlRow}>
+            <View style={styles.dots}>
+              {slides.map((_, i) => (
+                <Animated.View
+                  key={i}
+                  style={[
+                    styles.dot,
+                    {
+                      width: dotWidths[i],
+                      opacity: dotOpacities[i],
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+
+            <Animated.View style={{ transform: [{ scale: arrowScale }] }}>
+              <TouchableOpacity
+                style={isLastSlide ? styles.startButton : styles.arrowButton}
+                onPress={handleNext}
+                onPressIn={handleArrowPressIn}
+                onPressOut={handleArrowPressOut}
+                activeOpacity={1}
+              >
+                {isLastSlide ? (
+                  <Text style={styles.startText}>Empezar</Text>
+                ) : (
+                  <Text style={styles.arrowText}>→</Text>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </SafeAreaView>
+      )}
+
+      {/* For slides without text, just show controls at bottom */}
+      {!currentSlide.heading && (
+        <SafeAreaView edges={['bottom']} style={styles.bottomArea} pointerEvents="box-none">
+          <View style={styles.controlRow}>
+            <View style={styles.dots}>
+              {slides.map((_, i) => (
+                <Animated.View
+                  key={i}
+                  style={[
+                    styles.dot,
+                    {
+                      width: dotWidths[i],
+                      opacity: dotOpacities[i],
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+
+            <Animated.View style={{ transform: [{ scale: arrowScale }] }}>
+              <TouchableOpacity
+                style={isLastSlide ? styles.startButton : styles.arrowButton}
+                onPress={handleNext}
+                onPressIn={handleArrowPressIn}
+                onPressOut={handleArrowPressOut}
+                activeOpacity={1}
+              >
+                {isLastSlide ? (
+                  <Text style={styles.startText}>Empezar</Text>
+                ) : (
+                  <Text style={styles.arrowText}>→</Text>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </SafeAreaView>
+      )}
     </View>
   );
 }
@@ -205,15 +285,16 @@ export default function OnboardingScreen({ onFinish }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#2a2d42',
+    backgroundColor: '#f5f5f5',
   },
-  background: {
+  backgroundImage: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#2a2d42',
+    width: SCREEN_W,
+    height: SCREEN_H,
   },
   overlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
   },
   pageSlot: {
     width: SCREEN_W,
@@ -235,9 +316,12 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontFamily: theme.fonts.fallback,
     letterSpacing: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 3,
   },
   skipButton: {
-    backgroundColor: theme.colors.buttonSecondary,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: theme.borderRadius.pill,
     width: 98,
     height: 54,
@@ -262,17 +346,23 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 32,
     fontWeight: '600',
-    color: theme.colors.textHeadingAccent,
+    color: '#ffffff',
     fontFamily: theme.fonts.fallback,
     lineHeight: 40,
     marginBottom: theme.spacing.md,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 3,
   },
   bodyText: {
     fontSize: 16,
     fontWeight: '400',
     fontFamily: theme.fonts.fallback,
-    color: 'rgba(255,255,255,0.85)',
+    color: 'rgba(255,255,255,0.95)',
     lineHeight: 24,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   controlRow: {
     flexDirection: 'row',
