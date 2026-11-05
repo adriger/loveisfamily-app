@@ -23,6 +23,10 @@ interface Slide {
 
 const slides: Slide[] = [
   {
+    id: '0',
+    image: require('../../../assets/onboarding/LIF-Splash-1.png'),
+  },
+  {
     id: '1',
     image: require('../../../assets/onboarding/splash-1.png'),
     heading: 'Encuentra familias con quienes compartir',
